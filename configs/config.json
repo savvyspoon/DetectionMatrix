@@ -1,0 +1,31 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "read_timeout_seconds": 30,
+    "write_timeout_seconds": 30,
+    "idle_timeout_seconds": 60
+  },
+  "database": {
+    "path": "data/riskmatrix.db",
+    "max_open_conns": 10,
+    "max_idle_conns": 5,
+    "conn_max_lifetime_minutes": 60
+  },
+  "risk_engine": {
+    "threshold": 50,
+    "decay_factor": 0.1,
+    "decay_interval_hours": 24
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "output": "stdout"
+  },
+  "security": {
+    "enable_cors": true,
+    "allowed_origins": ["http://localhost:8080"],
+    "api_rate_limit": 100,
+    "api_rate_limit_window_seconds": 60
+  }
+}

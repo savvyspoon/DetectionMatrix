@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  riskmatrix:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: riskmatrix
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+    environment:
+      - DB_PATH=/app/data/riskmatrix.db
+      - CONFIG_PATH=/app/configs/config.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

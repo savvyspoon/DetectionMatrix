@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RiskMatrix - Detection Management Platform</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --text-color: #333;
+            --light-bg: #f5f5f5;
+            --border-color: #ddd;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--light-bg);
+        }
+        
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+        
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        
+        nav ul {
+            display: flex;
+            list-style: none;
+        }
+        
+        nav ul li {
+            margin-left: 1.5rem;
+        }
+        
+        nav ul li a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        nav ul li a:hover {
+            color: var(--secondary-color);
+        }
+        
+        main {
+            padding: 2rem 0;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+        }
+        
+        .card h3 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+        
+        .chart-container {
+            height: 200px;
+            margin-top: 1rem;
+        }
+        
+        footer {
+            background-color: var(--primary-color);
+            color: white;
+            text-align: center;
+            padding: 1rem 0;
+            margin-top: 2rem;
+        }
+        
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .dashboard-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.5rem;
+        }
+        
+        .last-updated {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .btn-refresh {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.3s;
+        }
+        
+        .btn-refresh:hover {
+            background-color: #2980b9;
+        }
+        
+        @media (max-width: 768px) {
+            header .container {
+                flex-direction: column;
+            }
+            
+            nav ul {
+                margin-top: 1rem;
+            }
+            
+            nav ul li {
+                margin: 0 0.5rem;
+            }
+            
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .dashboard-actions {
+                flex-direction: row;
+                align-items: center;
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .btn-refresh {
+                align-self: flex-start;
+            }
+        }
+    </style>
+</head>
+<body x-data="dashboardData()">
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="/alerts">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="dashboard-header">
+            <div>
+                <h2>Dashboard</h2>
+                <p>Welcome to RiskMatrix, a detection management platform for security operations.</p>
+            </div>
+            <div class="dashboard-actions">
+                <div class="last-updated">
+                    Last updated: <span x-text="formatTime(lastUpdated)"></span>
+                </div>
+                <button @click="refreshData()" class="btn-refresh">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                    Refresh Dashboard
+                </button>
+            </div>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h3>Detection Status</h3>
+                <div class="stat">
+                    <span>Total Detections</span>
+                    <span class="stat-value" x-text="stats.totalDetections">0</span>
+                </div>
+                <div class="stat">
+                    <span>Production</span>
+                    <span class="stat-value" x-text="stats.production">0</span>
+                </div>
+                <div class="stat">
+                    <span>Testing</span>
+                    <span class="stat-value" x-text="stats.testing">0</span>
+                </div>
+                <div class="stat">
+                    <span>Draft</span>
+                    <span class="stat-value" x-text="stats.draft">0</span>
+                </div>
+                <div class="stat">
+                    <span>Idea</span>
+                    <span class="stat-value" x-text="stats.idea">0</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>MITRE Coverage</h3>
+                <div class="stat">
+                    <span>Techniques Covered</span>
+                    <span class="stat-value" x-text="stats.techniquesCovered + ' / ' + stats.totalTechniques">0 / 0</span>
+                </div>
+                <div class="stat">
+                    <span>Tactics Covered</span>
+                    <span class="stat-value" x-text="stats.tacticsCovered + ' / ' + stats.totalTactics">0 / 0</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="mitreChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Risk Overview</h3>
+                <div class="stat">
+                    <span>High Risk Entities</span>
+                    <span class="stat-value" x-text="stats.highRiskEntities">0</span>
+                </div>
+                <div class="stat">
+                    <span>Active Risk Alerts</span>
+                    <span class="stat-value" x-text="stats.activeAlerts">0</span>
+                </div>
+                <div class="stat">
+                    <span>Events Today</span>
+                    <span class="stat-value" x-text="stats.eventsToday">0</span>
+                </div>
+                <div class="stat">
+                    <span>False Positives</span>
+                    <span class="stat-value" x-text="stats.falsePositives">0</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <script>
+        function dashboardData() {
+            return {
+                lastUpdated: new Date(),
+                stats: {
+                    totalDetections: 0,
+                    production: 0,
+                    testing: 0,
+                    draft: 0,
+                    idea: 0,
+                    techniquesCovered: 0,
+                    totalTechniques: 0,
+                    tacticsCovered: 0,
+                    totalTactics: 0,
+                    highRiskEntities: 0,
+                    activeAlerts: 0,
+                    eventsToday: 0,
+                    falsePositives: 0
+                },
+                mitreData: {},
+                chart: null,
+
+                init() {
+                    this.$nextTick(() => {
+                        this.fetchDetectionCount();
+                        this.fetchDetectionCountByStatus();
+                        this.fetchMitreCoverageSummary();
+                        this.fetchMitreCoverageByTactic().then(() => {
+                            this.renderChart();
+                        });
+                        // Fetch Risk Overview data
+                        this.fetchHighRiskEntities();
+                        this.fetchActiveAlerts();
+                        this.fetchEventsToday();
+                        this.fetchFalsePositives();
+                    });
+                },
+
+                async fetchDetectionCount() {
+                    try {
+                        const response = await fetch('/api/detections/count');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.stats.totalDetections = data.count;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching detection count:', error);
+                    }
+                },
+
+                async fetchDetectionCountByStatus() {
+                    try {
+                        const response = await fetch('/api/detections/count/status');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.stats.production = data.production || 0;
+                            this.stats.testing = data.test || 0;
+                            this.stats.draft = data.draft || 0;
+                            this.stats.idea = data.idea || 0;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching detection counts by status:', error);
+                    }
+                },
+
+                async fetchMitreCoverageSummary() {
+                    try {
+                        const response = await fetch('/api/mitre/coverage/summary');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.stats.techniquesCovered = data.coveredTechniques || 0;
+                            this.stats.totalTechniques = data.totalTechniques || 0;
+                            this.stats.tacticsCovered = data.coveredTactics || 0;
+                            this.stats.totalTactics = data.totalTactics || 0;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching MITRE coverage summary:', error);
+                    }
+                },
+
+                async fetchMitreCoverageByTactic() {
+                    try {
+                        const response = await fetch('/api/mitre/coverage');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.mitreData = data;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching MITRE coverage by tactic:', error);
+                    }
+                },
+
+                async fetchHighRiskEntities() {
+                    try {
+                        const response = await fetch('/api/risk/high');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.stats.highRiskEntities = data.length || 0;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching high risk entities:', error);
+                    }
+                },
+
+                async fetchActiveAlerts() {
+                    try {
+                        const response = await fetch('/api/risk/alerts');
+                        if (response.ok) {
+                            const data = await response.json();
+                            // Count alerts that are not closed
+                            const activeAlerts = data.filter(alert => alert.status !== 'Closed');
+                            this.stats.activeAlerts = activeAlerts.length || 0;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching active alerts:', error);
+                    }
+                },
+
+                async fetchEventsToday() {
+                    try {
+                        const response = await fetch('/api/events');
+                        if (response.ok) {
+                            const data = await response.json();
+                            const today = new Date().toDateString();
+                            // Filter events for today
+                            const todayEvents = data.events.filter(event => {
+                                const eventDate = new Date(event.timestamp).toDateString();
+                                return eventDate === today;
+                            });
+                            this.stats.eventsToday = todayEvents.length || 0;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching events today:', error);
+                    }
+                },
+
+                async fetchFalsePositives() {
+                    try {
+                        const response = await fetch('/api/events');
+                        if (response.ok) {
+                            const data = await response.json();
+                            // Count false positive events
+                            const falsePositives = data.events.filter(event => event.is_false_positive === true);
+                            this.stats.falsePositives = falsePositives.length || 0;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching false positives:', error);
+                    }
+                },
+
+                formatTime(date) {
+                    return date.toLocaleTimeString();
+                },
+
+                refreshData() {
+                    this.lastUpdated = new Date();
+                    // Fetch actual data
+                    this.fetchDetectionCount();
+                    this.fetchDetectionCountByStatus();
+                    this.fetchMitreCoverageSummary();
+                    this.fetchMitreCoverageByTactic().then(() => {
+                        this.renderChart();
+                    });
+                    // Fetch Risk Overview data
+                    this.fetchHighRiskEntities();
+                    this.fetchActiveAlerts();
+                    this.fetchEventsToday();
+                    this.fetchFalsePositives();
+                },
+
+                renderChart() {
+                    const ctx = document.getElementById('mitreChart');
+                    if (!ctx) return;
+
+                    if (this.chart) {
+                        this.chart.destroy();
+                    }
+
+                    const labels = Object.keys(this.mitreData);
+                    const data = Object.values(this.mitreData);
+
+                    this.chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Coverage (%)',
+                                data: data,
+                                backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                                borderColor: 'rgba(52, 152, 219, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    title: {
+                                        display: true,
+                                        text: 'Coverage (%)'
+                                    }
+                                },
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tactics'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>

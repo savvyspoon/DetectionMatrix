@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Object Details - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html" class="active">Risk Objects</a></li>
+                    <li><a href="/alerts">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            riskObject: null,
+            events: [],
+            riskAlerts: [],
+            loading: true,
+            
+            async init() {
+                await this.loadRiskObject();
+            },
+            
+            async loadRiskObject() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+                
+                if (!id) {
+                    alert('No risk object ID provided');
+                    window.location.href = 'risk-objects.html';
+                    return;
+                }
+                
+                try {
+                    // Fetch risk object details
+                    const riskObjectResponse = await fetch(`/api/risk/objects/${id}`);
+                    if (riskObjectResponse.ok) {
+                        this.riskObject = await riskObjectResponse.json();
+                        
+                        // Fetch associated events
+                        await this.fetchEvents(id);
+                        
+                        // Fetch risk alerts
+                        await this.fetchRiskAlerts();
+                        
+                        this.loading = false;
+                        
+                        // Render charts after data is loaded
+                        this.$nextTick(() => {
+                            this.renderRiskTrendChart();
+                        });
+                    } else {
+                        alert('Risk object not found');
+                        window.location.href = 'risk-objects.html';
+                    }
+                } catch (error) {
+                    console.error('Error loading risk object:', error);
+                    alert('Error loading risk object details');
+                    window.location.href = 'risk-objects.html';
+                }
+            },
+            
+            async fetchEvents(entityId) {
+                try {
+                    const response = await fetch(`/api/events/entity/${entityId}`);
+                    if (response.ok) {
+                        this.events = await response.json() || [];
+                    }
+                } catch (error) {
+                    console.error('Error fetching events:', error);
+                    this.events = [];
+                }
+            },
+            
+            async fetchRiskAlerts() {
+                try {
+                    const response = await fetch('/api/risk/alerts');
+                    if (response.ok) {
+                        const allAlerts = await response.json() || [];
+                        // Filter alerts for this entity
+                        this.riskAlerts = allAlerts.filter(alert => 
+                            alert.entity_id === this.riskObject.id
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error fetching risk alerts:', error);
+                    this.riskAlerts = [];
+                }
+            },
+            
+            formatTimestamp(timestamp) {
+                return new Date(timestamp).toLocaleString();
+            },
+            
+            getRiskLevelClass(score) {
+                if (score >= 80) return 'risk-critical';
+                if (score >= 60) return 'risk-high';
+                if (score >= 40) return 'risk-medium';
+                if (score >= 20) return 'risk-low';
+                return 'risk-minimal';
+            },
+            
+            getRiskLevelText(score) {
+                if (score >= 80) return 'Critical';
+                if (score >= 60) return 'High';
+                if (score >= 40) return 'Medium';
+                if (score >= 20) return 'Low';
+                return 'Minimal';
+            },
+            
+            getEntityTypeIcon(entityType) {
+                switch(entityType.toLowerCase()) {
+                    case 'user': return '👤';
+                    case 'host': return '💻';
+                    case 'ip': return '🌐';
+                    default: return '❓';
+                }
+            },
+            
+            getFalsePositiveClass(isFalsePositive) {
+                return isFalsePositive ? 'badge badge-warning' : 'badge badge-success';
+            },
+            
+            getFalsePositiveText(isFalsePositive) {
+                return isFalsePositive ? 'False Positive' : 'Valid';
+            },
+            
+            calculateRiskScoreHistory() {
+                if (!this.events || this.events.length === 0) return [];
+                
+                // Sort events by timestamp
+                const sortedEvents = [...this.events].sort((a, b) => 
+                    new Date(a.timestamp) - new Date(b.timestamp)
+                );
+                
+                // Calculate cumulative risk score over time
+                let cumulativeScore = 0;
+                const historyData = sortedEvents.map(event => {
+                    if (!event.is_false_positive) {
+                        cumulativeScore += event.risk_points;
+                    }
+                    return {
+                        timestamp: new Date(event.timestamp),
+                        score: cumulativeScore,
+                        event: event,
+                        change: event.is_false_positive ? 0 : event.risk_points
+                    };
+                });
+                
+                // Add current point if different from last event
+                if (historyData.length > 0 && historyData[historyData.length - 1].score !== this.riskObject.current_score) {
+                    historyData.push({
+                        timestamp: new Date(),
+                        score: this.riskObject.current_score,
+                        event: null,
+                        change: this.riskObject.current_score - historyData[historyData.length - 1].score
+                    });
+                }
+                
+                return historyData.reverse(); // Show most recent first
+            },
+
+            renderRiskTrendChart() {
+                if (!this.events || this.events.length === 0) return;
+                
+                const ctx = document.getElementById('riskTrendChart');
+                if (!ctx) return;
+                
+                // Destroy existing chart if it exists
+                if (this.chart) {
+                    this.chart.destroy();
+                }
+                
+                const historyData = this.calculateRiskScoreHistory().reverse(); // Chart needs chronological order
+                const chartData = historyData.map(item => ({
+                    x: item.timestamp,
+                    y: item.score
+                }));
+                
+                this.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Risk Score Over Time',
+                            data: chartData,
+                            borderColor: '#dc3545',
+                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    displayFormats: {
+                                        hour: 'MMM DD HH:mm',
+                                        day: 'MMM DD'
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Time'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Risk Score'
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Risk Score Trend'
+                            },
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+        }" x-init="init()">
+            <div class="card-header">
+                <h2 x-show="!loading" x-text="riskObject ? `Risk Object: ${riskObject.entity_value}` : 'Risk Object Details'">Risk Object Details</h2>
+                <h2 x-show="loading">Loading...</h2>
+                <div class="card-actions">
+                    <a href="risk-objects.html" class="btn">Back to Risk Objects</a>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div x-show="loading" class="loading-state">
+                <p>Loading risk object details...</p>
+            </div>
+            
+            <!-- Risk Object Information -->
+            <div x-show="!loading && riskObject" class="risk-object-info">
+                <h3>Risk Object Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Entity:</label>
+                        <div class="entity-info">
+                            <span class="entity-icon" x-text="getEntityTypeIcon(riskObject.entity_type)"></span>
+                            <span class="entity-value" x-text="riskObject.entity_value"></span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label>Entity Type:</label>
+                        <span class="badge badge-secondary" x-text="riskObject.entity_type"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Current Risk Score:</label>
+                        <span class="risk-score" x-text="riskObject.current_score"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Risk Level:</label>
+                        <span class="risk-level" 
+                              :class="getRiskLevelClass(riskObject.current_score)"
+                              x-text="getRiskLevelText(riskObject.current_score)"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Last Seen:</label>
+                        <span x-text="formatTimestamp(riskObject.last_seen)"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Total Events:</label>
+                        <span x-text="events.length"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Risk Trend Chart -->
+            <div x-show="!loading && events.length > 0" class="risk-trend">
+                <h3>Risk Score Trend</h3>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="riskTrendChart"></canvas>
+                </div>
+                
+                <!-- Risk Score History Table -->
+                <div class="risk-score-history" style="margin-top: 2rem;">
+                    <h4>Risk Score History</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Risk Score</th>
+                                <th>Change</th>
+                                <th>Event</th>
+                                <th>Risk Points</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="historyItem in calculateRiskScoreHistory()" :key="historyItem.timestamp.getTime()">
+                                <tr>
+                                    <td x-text="formatTimestamp(historyItem.timestamp)"></td>
+                                    <td>
+                                        <span class="risk-score" 
+                                              :class="getRiskLevelClass(historyItem.score)"
+                                              x-text="historyItem.score"></span>
+                                    </td>
+                                    <td>
+                                        <span class="score-change" 
+                                              :class="historyItem.change > 0 ? 'score-increase' : (historyItem.change < 0 ? 'score-decrease' : 'score-neutral')"
+                                              x-text="historyItem.change > 0 ? '+' + historyItem.change : historyItem.change"></span>
+                                    </td>
+                                    <td>
+                                        <span x-show="historyItem.event" x-text="historyItem.event ? historyItem.event.raw_data : 'Current Score'"></span>
+                                        <span x-show="!historyItem.event" class="text-muted">Current Score</span>
+                                    </td>
+                                    <td>
+                                        <span x-show="historyItem.event" x-text="historyItem.event ? historyItem.event.risk_points : '-'"></span>
+                                        <span x-show="!historyItem.event" class="text-muted">-</span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Risk Alerts -->
+            <div x-show="!loading && riskAlerts.length > 0" class="risk-alerts">
+                <h3>Risk Alerts</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Alert ID</th>
+                            <th>Triggered At</th>
+                            <th>Total Score</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="alert in riskAlerts" :key="alert.id">
+                            <tr>
+                                <td x-text="alert.id"></td>
+                                <td x-text="formatTimestamp(alert.triggered_at)"></td>
+                                <td>
+                                    <span class="risk-score" x-text="alert.total_score"></span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-secondary btn-sm" @click="alert('Alert details not implemented yet')">View Details</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Associated Events -->
+            <div x-show="!loading" class="associated-events">
+                <h3>Associated Events</h3>
+                <div x-show="events.length === 0" class="empty-state">
+                    No events found for this risk object.
+                </div>
+                <table x-show="events.length > 0">
+                    <thead>
+                        <tr>
+                            <th>Event ID</th>
+                            <th>Detection ID</th>
+                            <th>Timestamp</th>
+                            <th>Risk Points</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="event in events" :key="event.id">
+                            <tr>
+                                <td x-text="event.id"></td>
+                                <td x-text="event.detection_id"></td>
+                                <td x-text="formatTimestamp(event.timestamp)"></td>
+                                <td>
+                                    <span class="risk-points" x-text="event.risk_points"></span>
+                                </td>
+                                <td>
+                                    <span x-text="getFalsePositiveText(event.is_false_positive)" 
+                                          :class="getFalsePositiveClass(event.is_false_positive)"></span>
+                                </td>
+                                <td>
+                                    <a :href="`events-detail.html?id=${event.id}`" class="btn btn-secondary btn-sm">View Details</a>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .loading-state {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        .risk-object-info, .risk-trend, .risk-alerts, .associated-events {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .risk-object-info h3, .risk-trend h3, .risk-alerts h3, .associated-events h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-item label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-item span, .info-item div {
+            color: #666;
+            margin: 0;
+        }
+        
+        .entity-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .entity-icon {
+            font-size: 1.2rem;
+        }
+        
+        .entity-value {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .risk-score {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #dc3545;
+        }
+        
+        .risk-points {
+            font-weight: 600;
+            color: #fd7e14;
+        }
+        
+        .risk-level {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .risk-critical {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .risk-high {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .risk-medium {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .risk-low {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .risk-minimal {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .badge-secondary {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .badge-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .empty-state {
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+            color: #6c757d;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .risk-score-history h4 {
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+            font-size: 1.1rem;
+        }
+        
+        .score-change {
+            font-weight: 600;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+        
+        .score-increase {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .score-decrease {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .score-neutral {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .text-muted {
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
+</body>
+</html>

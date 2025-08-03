@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detections - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections.html" class="active">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="/alerts">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            detections: [],
+            filteredDetections: [],
+            dataSources: [],
+            mitreTechniques: [],
+            statusFilter: 'all',
+            severityFilter: 'all',
+            searchTerm: '',
+            showForm: false,
+            newDetection: {
+                name: '',
+                description: '',
+                status: 'idea',
+                severity: 'medium',
+                risk_points: 50,
+                playbook_link: ''
+            },
+            selectedDetection: null,
+            selectedDataSource: null,
+            selectedMitreTechnique: null,
+            
+            async fetchDetections() {
+                const response = await fetch('/api/detections');
+                if (response.ok) {
+                    this.detections = await response.json();
+                    this.applyFilters();
+                }
+            },
+            
+            async fetchDataSources() {
+                const response = await fetch('/api/datasources');
+                if (response.ok) {
+                    this.dataSources = await response.json();
+                }
+            },
+            
+            async fetchMitreTechniques() {
+                const response = await fetch('/api/mitre/techniques');
+                if (response.ok) {
+                    this.mitreTechniques = await response.json();
+                }
+            },
+            
+            applyFilters() {
+                this.filteredDetections = this.detections.filter(d => {
+                    const matchesStatus = this.statusFilter === 'all' || d.status === this.statusFilter;
+                    const matchesSeverity = this.severityFilter === 'all' || d.severity === this.severityFilter;
+                    const matchesSearch = this.searchTerm === '' || 
+                        d.name.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
+                        d.description.toLowerCase().includes(this.searchTerm.toLowerCase());
+                    return matchesStatus && matchesSeverity && matchesSearch;
+                });
+            },
+            
+            async createDetection() {
+                const response = await fetch('/api/detections', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.newDetection)
+                });
+                
+                if (response.ok) {
+                    this.showForm = false;
+                    this.newDetection = {
+                        name: '',
+                        description: '',
+                        status: 'idea',
+                        severity: 'medium',
+                        risk_points: 50,
+                        playbook_link: ''
+                    };
+                    await this.fetchDetections();
+                }
+            },
+            
+            async selectDetection(id) {
+                const response = await fetch(`/api/detections/${id}`);
+                if (response.ok) {
+                    this.selectedDetection = await response.json();
+                }
+            },
+            
+            async updateDetection() {
+                const response = await fetch(`/api/detections/${this.selectedDetection.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.selectedDetection)
+                });
+                
+                if (response.ok) {
+                    this.selectedDetection = null;
+                    await this.fetchDetections();
+                }
+            },
+            
+            async deleteDetection(id) {
+                if (!confirm('Are you sure you want to delete this detection?')) {
+                    return;
+                }
+                
+                const response = await fetch(`/api/detections/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    this.selectedDetection = null;
+                    await this.fetchDetections();
+                }
+            },
+            
+            async addDataSource(detectionId, dataSourceId) {
+                if (!dataSourceId) return;
+                
+                const response = await fetch(`/api/detections/${detectionId}/datasource/${dataSourceId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    // Refresh the detection to show the updated data sources
+                    await this.selectDetection(detectionId);
+                    this.selectedDataSource = ''; // Reset selection
+                }
+            },
+            
+            async removeDataSource(detectionId, dataSourceId) {
+                if (!confirm('Are you sure you want to remove this data source?')) {
+                    return;
+                }
+                
+                const response = await fetch(`/api/detections/${detectionId}/datasource/${dataSourceId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // Refresh the detection to show the updated data sources
+                    await this.selectDetection(detectionId);
+                }
+            },
+            
+            async addMitreTechnique(detectionId, techniqueId) {
+                if (!techniqueId) return;
+                
+                const response = await fetch(`/api/detections/${detectionId}/mitre/${techniqueId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    // Refresh the detection to show the updated MITRE techniques
+                    await this.selectDetection(detectionId);
+                    this.selectedMitreTechnique = ''; // Reset selection
+                }
+            },
+            
+            async removeMitreTechnique(detectionId, techniqueId) {
+                if (!confirm('Are you sure you want to remove this MITRE technique?')) {
+                    return;
+                }
+                
+                const response = await fetch(`/api/detections/${detectionId}/mitre/${techniqueId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // Refresh the detection to show the updated MITRE techniques
+                    await this.selectDetection(detectionId);
+                }
+            },
+            
+            getStatusClass(status) {
+                return `status status-${status}`;
+            },
+            
+            getSeverityClass(severity) {
+                switch(severity) {
+                    case 'low': return 'badge badge-secondary';
+                    case 'medium': return 'badge badge-warning';
+                    case 'high': return 'badge badge-danger';
+                    case 'critical': return 'badge badge-danger';
+                    default: return 'badge';
+                }
+            }
+        }" x-init="fetchDetections(); fetchDataSources(); fetchMitreTechniques()">
+            <div class="card-header">
+                <h2>Detections</h2>
+                <div class="card-actions">
+                    <button class="btn btn-primary" @click="showForm = true; selectedDataSource = ''; selectedMitreTechnique = ''" x-show="!showForm">Add Detection</button>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filters">
+                <div class="form-group">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search detections...">
+                </div>
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label for="status-filter">Status</label>
+                        <select id="status-filter" x-model="statusFilter" @change="applyFilters()">
+                            <option value="all">All Statuses</option>
+                            <option value="idea">Idea</option>
+                            <option value="draft">Draft</option>
+                            <option value="test">Test</option>
+                            <option value="production">Production</option>
+                            <option value="retired">Retired</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="severity-filter">Severity</label>
+                        <select id="severity-filter" x-model="severityFilter" @change="applyFilters()">
+                            <option value="all">All Severities</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detection List -->
+            <div class="detection-list" x-show="!showForm && !selectedDetection">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Severity</th>
+                            <th>Risk Points</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="detection in filteredDetections" :key="detection.id">
+                            <tr>
+                                <td x-text="detection.name"></td>
+                                <td>
+                                    <span x-text="detection.status" :class="getStatusClass(detection.status)"></span>
+                                </td>
+                                <td>
+                                    <span x-text="detection.severity" :class="getSeverityClass(detection.severity)"></span>
+                                </td>
+                                <td x-text="detection.risk_points"></td>
+                                <td>
+                                    <button class="btn btn-secondary" @click="selectDetection(detection.id)">View</button>
+                                    <button class="btn btn-danger" @click="deleteDetection(detection.id)">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="filteredDetections.length === 0">
+                            <td colspan="5" class="text-center">No detections found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- New Detection Form -->
+            <div class="detection-form" x-show="showForm">
+                <h3>Add New Detection</h3>
+                <form @submit.prevent="createDetection()">
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" x-model="newDetection.name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" x-model="newDetection.description" required></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="status">Status</label>
+                            <select id="status" x-model="newDetection.status">
+                                <option value="idea">Idea</option>
+                                <option value="draft">Draft</option>
+                                <option value="test">Test</option>
+                                <option value="production">Production</option>
+                                <option value="retired">Retired</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="severity">Severity</label>
+                            <select id="severity" x-model="newDetection.severity">
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="risk-points">Risk Points</label>
+                        <input type="number" id="risk-points" x-model.number="newDetection.risk_points" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="playbook-link">Playbook Link</label>
+                        <input type="text" id="playbook-link" x-model="newDetection.playbook_link">
+                    </div>
+                    
+                    <!-- Data Sources Selection -->
+                    <div class="form-group">
+                        <label>Data Sources</label>
+                        <div class="data-source-selector">
+                            <select id="data-source-select" x-model="selectedDataSource" class="form-control">
+                                <option value="">-- Select a Data Source --</option>
+                                <template x-for="source in dataSources" :key="source.id">
+                                    <option :value="source.id" x-text="`${source.name} - ${source.description || 'No description'}`"></option>
+                                </template>
+                            </select>
+                            <div class="data-source-note">
+                                <p class="note">Note: Data sources can be added after creating the detection.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Save</button>
+                        <button type="button" class="btn" @click="showForm = false">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Detection Details -->
+            <div class="detection-details" x-show="selectedDetection">
+                <h3>Detection Details</h3>
+                <form @submit.prevent="updateDetection()">
+                    <div class="form-group">
+                        <label for="edit-name">Name</label>
+                        <input type="text" id="edit-name" x-model="selectedDetection.name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-description">Description</label>
+                        <textarea id="edit-description" x-model="selectedDetection.description" required></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-status">Status</label>
+                            <select id="edit-status" x-model="selectedDetection.status">
+                                <option value="idea">Idea</option>
+                                <option value="draft">Draft</option>
+                                <option value="test">Test</option>
+                                <option value="production">Production</option>
+                                <option value="retired">Retired</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-severity">Severity</label>
+                            <select id="edit-severity" x-model="selectedDetection.severity">
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-risk-points">Risk Points</label>
+                        <input type="number" id="edit-risk-points" x-model.number="selectedDetection.risk_points" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-playbook-link">Playbook Link</label>
+                        <input type="text" id="edit-playbook-link" x-model="selectedDetection.playbook_link">
+                    </div>
+                    
+                    <!-- MITRE Techniques -->
+                    <div class="related-data">
+                        <h4>MITRE Techniques</h4>
+                        <div class="mitre-techniques">
+                            <template x-if="selectedDetection.mitre_techniques && selectedDetection.mitre_techniques.length > 0">
+                                <ul class="technique-list">
+                                    <template x-for="technique in selectedDetection.mitre_techniques" :key="technique.id">
+                                        <li>
+                                            <span x-text="`${technique.id} - ${technique.name} (${technique.tactic})`"></span>
+                                            <button type="button" class="btn btn-sm btn-danger" 
+                                                @click="removeMitreTechnique(selectedDetection.id, technique.id)">
+                                                Remove
+                                            </button>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <div x-show="!selectedDetection.mitre_techniques || selectedDetection.mitre_techniques.length === 0">
+                                No MITRE techniques associated
+                            </div>
+                            
+                            <!-- Add MITRE Technique -->
+                            <div class="add-mitre-technique">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <select x-model="selectedMitreTechnique" class="form-control">
+                                            <option value="">-- Select a MITRE Technique --</option>
+                                            <template x-for="technique in mitreTechniques" :key="technique.id">
+                                                <option :value="technique.id" x-text="`${technique.id} - ${technique.name} (${technique.tactic})`"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <button type="button" class="btn btn-primary" 
+                                            @click="addMitreTechnique(selectedDetection.id, selectedMitreTechnique)"
+                                            :disabled="!selectedMitreTechnique">
+                                            Add MITRE Technique
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Data Sources -->
+                    <div class="related-data">
+                        <h4>Data Sources</h4>
+                        <div class="data-sources">
+                            <template x-if="selectedDetection.data_sources && selectedDetection.data_sources.length > 0">
+                                <ul class="source-list">
+                                    <template x-for="source in selectedDetection.data_sources" :key="source.id">
+                                        <li>
+                                            <span x-text="`${source.name} - ${source.description || 'No description'}`"></span>
+                                            <button type="button" class="btn btn-sm btn-danger" 
+                                                @click="removeDataSource(selectedDetection.id, source.id)">
+                                                Remove
+                                            </button>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <div x-show="!selectedDetection.data_sources || selectedDetection.data_sources.length === 0">
+                                No data sources associated
+                            </div>
+                            
+                            <!-- Add Data Source -->
+                            <div class="add-data-source">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <select x-model="selectedDataSource" class="form-control">
+                                            <option value="">-- Select a Data Source --</option>
+                                            <template x-for="source in dataSources" :key="source.id">
+                                                <option :value="source.id" x-text="`${source.name} - ${source.description || 'No description'}`"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <button type="button" class="btn btn-primary" 
+                                            @click="addDataSource(selectedDetection.id, selectedDataSource)"
+                                            :disabled="!selectedDataSource">
+                                            Add Data Source
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Update</button>
+                        <button type="button" class="btn" @click="selectedDetection = null">Back</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .filters {
+            margin-bottom: 1.5rem;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .filter-row .form-group {
+            flex: 1;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .related-data {
+            margin-top: 1.5rem;
+        }
+        
+        .related-data h4 {
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+        
+        .technique-list, .source-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .technique-list li, .source-list li {
+            padding: 0.5rem;
+            background-color: var(--light-bg);
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        /* Data Source Styles */
+        .data-source-selector {
+            margin-bottom: 1rem;
+        }
+        
+        .data-source-note {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .add-data-source {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .source-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .source-list .btn-sm, .technique-list .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        /* MITRE Technique Styles */
+        .add-mitre-technique {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .technique-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</body>
+</html>

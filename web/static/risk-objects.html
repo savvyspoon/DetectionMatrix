@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Objects - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html" class="active">Risk Objects</a></li>
+                    <li><a href="/alerts">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            riskObjects: [],
+            filteredRiskObjects: [],
+            entityTypeFilter: 'all',
+            riskThreshold: '',
+            searchTerm: '',
+            sortBy: 'score',
+            sortOrder: 'desc',
+            
+            async fetchRiskObjects() {
+                let url = '/api/risk/objects';
+                if (this.riskThreshold && this.riskThreshold !== '') {
+                    url += `?threshold=${this.riskThreshold}`;
+                }
+                
+                const response = await fetch(url);
+                if (response.ok) {
+                    this.riskObjects = await response.json() || [];
+                    this.applyFilters();
+                    this.renderRiskDistributionChart();
+                }
+            },
+            
+            applyFilters() {
+                this.filteredRiskObjects = this.riskObjects.filter(obj => {
+                    const matchesEntityType = this.entityTypeFilter === 'all' || obj.entity_type === this.entityTypeFilter;
+                    const matchesSearch = this.searchTerm === '' || 
+                        obj.entity_value.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+                        obj.entity_type.toLowerCase().includes(this.searchTerm.toLowerCase());
+                    return matchesEntityType && matchesSearch;
+                });
+                
+                this.sortRiskObjects();
+            },
+            
+            sortRiskObjects() {
+                this.filteredRiskObjects.sort((a, b) => {
+                    let aVal, bVal;
+                    
+                    switch(this.sortBy) {
+                        case 'score':
+                            aVal = a.current_score;
+                            bVal = b.current_score;
+                            break;
+                        case 'entity':
+                            aVal = a.entity_value.toLowerCase();
+                            bVal = b.entity_value.toLowerCase();
+                            break;
+                        case 'type':
+                            aVal = a.entity_type.toLowerCase();
+                            bVal = b.entity_type.toLowerCase();
+                            break;
+                        case 'lastSeen':
+                            aVal = new Date(a.last_seen);
+                            bVal = new Date(b.last_seen);
+                            break;
+                        default:
+                            return 0;
+                    }
+                    
+                    if (this.sortOrder === 'asc') {
+                        return aVal > bVal ? 1 : -1;
+                    } else {
+                        return aVal < bVal ? 1 : -1;
+                    }
+                });
+            },
+            
+            formatTimestamp(timestamp) {
+                return new Date(timestamp).toLocaleString();
+            },
+            
+            getRiskLevelClass(score) {
+                if (score >= 80) return 'risk-critical';
+                if (score >= 60) return 'risk-high';
+                if (score >= 40) return 'risk-medium';
+                if (score >= 20) return 'risk-low';
+                return 'risk-minimal';
+            },
+            
+            getRiskLevelText(score) {
+                if (score >= 80) return 'Critical';
+                if (score >= 60) return 'High';
+                if (score >= 40) return 'Medium';
+                if (score >= 20) return 'Low';
+                return 'Minimal';
+            },
+            
+            getEntityTypeIcon(entityType) {
+                switch(entityType.toLowerCase()) {
+                    case 'user': return '👤';
+                    case 'host': return '💻';
+                    case 'ip': return '🌐';
+                    default: return '❓';
+                }
+            },
+            
+            renderRiskDistributionChart() {
+                if (this.riskObjects.length === 0) return;
+                
+                const ctx = document.getElementById('riskDistributionChart');
+                if (!ctx) return;
+                
+                // Destroy existing chart if it exists
+                if (this.chart) {
+                    this.chart.destroy();
+                }
+                
+                // Calculate risk distribution
+                const distribution = {
+                    'Critical (80+)': 0,
+                    'High (60-79)': 0,
+                    'Medium (40-59)': 0,
+                    'Low (20-39)': 0,
+                    'Minimal (0-19)': 0
+                };
+                
+                this.riskObjects.forEach(obj => {
+                    const score = obj.current_score;
+                    if (score >= 80) distribution['Critical (80+)']++;
+                    else if (score >= 60) distribution['High (60-79)']++;
+                    else if (score >= 40) distribution['Medium (40-59)']++;
+                    else if (score >= 20) distribution['Low (20-39)']++;
+                    else distribution['Minimal (0-19)']++;
+                });
+                
+                this.chart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(distribution),
+                        datasets: [{
+                            data: Object.values(distribution),
+                            backgroundColor: [
+                                '#dc3545', // Critical - Red
+                                '#fd7e14', // High - Orange
+                                '#ffc107', // Medium - Yellow
+                                '#28a745', // Low - Green
+                                '#6c757d'  // Minimal - Gray
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Risk Level Distribution'
+                            }
+                        }
+                    }
+                });
+            }
+        }" x-init="fetchRiskObjects()">
+            <div class="card-header">
+                <h2>Risk Objects</h2>
+                <div class="card-actions">
+                    <button class="btn btn-primary" @click="fetchRiskObjects()">Refresh</button>
+                </div>
+            </div>
+            
+            <!-- Risk Distribution Overview -->
+            <div class="risk-overview">
+                <h3>Risk Distribution</h3>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="riskDistributionChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filters">
+                <div class="form-group">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search by entity value or type...">
+                </div>
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label for="entity-type-filter">Entity Type</label>
+                        <select id="entity-type-filter" x-model="entityTypeFilter" @change="applyFilters()">
+                            <option value="all">All Types</option>
+                            <option value="user">Users</option>
+                            <option value="host">Hosts</option>
+                            <option value="ip">IP Addresses</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="risk-threshold">Risk Threshold</label>
+                        <input type="number" id="risk-threshold" x-model="riskThreshold" @change="fetchRiskObjects()" placeholder="Min risk score" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="sort-by">Sort By</label>
+                        <select id="sort-by" x-model="sortBy" @change="applyFilters()">
+                            <option value="score">Risk Score</option>
+                            <option value="entity">Entity Value</option>
+                            <option value="type">Entity Type</option>
+                            <option value="lastSeen">Last Seen</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sort-order">Order</label>
+                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()">
+                            <option value="desc">Descending</option>
+                            <option value="asc">Ascending</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Risk Objects List -->
+            <div class="risk-objects-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Entity</th>
+                            <th>Type</th>
+                            <th>Risk Score</th>
+                            <th>Risk Level</th>
+                            <th>Last Seen</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="riskObject in filteredRiskObjects" :key="riskObject.id">
+                            <tr>
+                                <td>
+                                    <div class="entity-info">
+                                        <span class="entity-icon" x-text="getEntityTypeIcon(riskObject.entity_type)"></span>
+                                        <span class="entity-value" x-text="riskObject.entity_value"></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-secondary" x-text="riskObject.entity_type"></span>
+                                </td>
+                                <td>
+                                    <span class="risk-score" x-text="riskObject.current_score"></span>
+                                </td>
+                                <td>
+                                    <span class="risk-level" 
+                                          :class="getRiskLevelClass(riskObject.current_score)"
+                                          x-text="getRiskLevelText(riskObject.current_score)"></span>
+                                </td>
+                                <td x-text="formatTimestamp(riskObject.last_seen)"></td>
+                                <td>
+                                    <a :href="`risk-objects-detail.html?id=${riskObject.id}`" class="btn btn-secondary btn-sm">View Details</a>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="filteredRiskObjects.length === 0">
+                            <td colspan="6" class="text-center">No risk objects found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .risk-overview {
+            margin-bottom: 2rem;
+        }
+        
+        .filters {
+            margin-bottom: 1.5rem;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .filter-row .form-group {
+            flex: 1;
+        }
+        
+        .entity-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .entity-icon {
+            font-size: 1.2rem;
+        }
+        
+        .entity-value {
+            font-weight: 600;
+        }
+        
+        .risk-score {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .risk-level {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .risk-critical {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .risk-high {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .risk-medium {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .risk-low {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .risk-minimal {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .badge-secondary {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .risk-objects-list table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .risk-objects-list th,
+        .risk-objects-list td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .risk-objects-list th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+    </style>
+</body>
+</html>

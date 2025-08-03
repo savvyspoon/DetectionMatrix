@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detections - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html" class="active">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="/alerts">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            detections: [],
+            filteredDetections: [],
+            statusFilter: 'all',
+            severityFilter: 'all',
+            searchTerm: '',
+            
+            async fetchDetections() {
+                const response = await fetch('/api/detections');
+                if (response.ok) {
+                    this.detections = await response.json();
+                    this.applyFilters();
+                }
+            },
+            
+            applyFilters() {
+                this.filteredDetections = this.detections.filter(d => {
+                    const matchesStatus = this.statusFilter === 'all' || d.status === this.statusFilter;
+                    const matchesSeverity = this.severityFilter === 'all' || d.severity === this.severityFilter;
+                    const matchesSearch = this.searchTerm === '' || 
+                        d.name.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
+                        d.description.toLowerCase().includes(this.searchTerm.toLowerCase());
+                    return matchesStatus && matchesSeverity && matchesSearch;
+                });
+            },
+            
+            async deleteDetection(id) {
+                if (!confirm('Are you sure you want to delete this detection?')) {
+                    return;
+                }
+                
+                const response = await fetch(`/api/detections/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    await this.fetchDetections();
+                }
+            },
+            
+            getStatusClass(status) {
+                return `status status-${status}`;
+            },
+            
+            getSeverityClass(severity) {
+                switch(severity) {
+                    case 'low': return 'badge badge-secondary';
+                    case 'medium': return 'badge badge-warning';
+                    case 'high': return 'badge badge-danger';
+                    case 'critical': return 'badge badge-danger';
+                    default: return 'badge';
+                }
+            }
+        }" x-init="fetchDetections()">
+            <div class="card-header">
+                <h2>Detections</h2>
+                <div class="card-actions">
+                    <a href="detections-add.html" class="btn btn-primary">Add Detection</a>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filters">
+                <div class="form-group">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search detections...">
+                </div>
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label for="status-filter">Status</label>
+                        <select id="status-filter" x-model="statusFilter" @change="applyFilters()">
+                            <option value="all">All Statuses</option>
+                            <option value="idea">Idea</option>
+                            <option value="draft">Draft</option>
+                            <option value="test">Test</option>
+                            <option value="production">Production</option>
+                            <option value="retired">Retired</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="severity-filter">Severity</label>
+                        <select id="severity-filter" x-model="severityFilter" @change="applyFilters()">
+                            <option value="all">All Severities</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detection List -->
+            <div class="detection-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Owner</th>
+                            <th>Risk Object</th>
+                            <th>Status</th>
+                            <th>Severity</th>
+                            <th>Risk Points</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="detection in filteredDetections" :key="detection.id">
+                            <tr>
+                                <td x-text="detection.name"></td>
+                                <td x-text="detection.owner || 'Not assigned'"></td>
+                                <td x-text="detection.risk_object || 'Not specified'"></td>
+                                <td>
+                                    <span x-text="detection.status" :class="getStatusClass(detection.status)"></span>
+                                </td>
+                                <td>
+                                    <span x-text="detection.severity" :class="getSeverityClass(detection.severity)"></span>
+                                </td>
+                                <td x-text="detection.risk_points"></td>
+                                <td>
+                                    <a :href="`detections-detail.html?id=${detection.id}`" class="btn btn-secondary">View</a>
+                                    <button class="btn btn-danger" @click="deleteDetection(detection.id)">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="filteredDetections.length === 0">
+                            <td colspan="7" class="text-center">No detections found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .filters {
+            margin-bottom: 1.5rem;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .filter-row .form-group {
+            flex: 1;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</body>
+</html>

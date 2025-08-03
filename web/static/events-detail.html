@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Details - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html" class="active">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="/alerts">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            event: null,
+            detection: null,
+            riskObject: null,
+            dataSources: [],
+            loading: true,
+            
+            async init() {
+                await this.loadEvent();
+            },
+            
+            async loadEvent() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+                
+                if (!id) {
+                    alert('No event ID provided');
+                    window.location.href = 'events.html';
+                    return;
+                }
+                
+                try {
+                    // Fetch event details
+                    const eventResponse = await fetch(`/api/events/${id}`);
+                    if (eventResponse.ok) {
+                        this.event = await eventResponse.json();
+                        
+                        // Fetch related detection and data sources
+                        await this.fetchDetection(this.event.detection_id);
+                        await this.fetchRiskObject(this.event.entity_id);
+                        
+                        this.loading = false;
+                    } else {
+                        alert('Event not found');
+                        window.location.href = 'events.html';
+                    }
+                } catch (error) {
+                    console.error('Error loading event:', error);
+                    alert('Error loading event details');
+                    window.location.href = 'events.html';
+                }
+            },
+            
+            async fetchDetection(detectionId) {
+                try {
+                    const response = await fetch(`/api/detections/${detectionId}`);
+                    if (response.ok) {
+                        this.detection = await response.json();
+                        this.dataSources = this.detection.data_sources || [];
+                    }
+                } catch (error) {
+                    console.error('Error fetching detection:', error);
+                }
+            },
+            
+            async fetchRiskObject(entityId) {
+                try {
+                    const response = await fetch(`/api/risk/objects/${entityId}`);
+                    if (response.ok) {
+                        this.riskObject = await response.json();
+                    }
+                } catch (error) {
+                    console.error('Error fetching risk object:', error);
+                }
+            },
+            
+            formatTimestamp(timestamp) {
+                return new Date(timestamp).toLocaleString();
+            },
+            
+            getFalsePositiveClass(isFalsePositive) {
+                return isFalsePositive ? 'badge badge-warning' : 'badge badge-success';
+            },
+            
+            getFalsePositiveText(isFalsePositive) {
+                return isFalsePositive ? 'False Positive' : 'Valid';
+            },
+            
+            formatContext(context) {
+                if (!context) return 'No context available';
+                try {
+                    const parsed = JSON.parse(context);
+                    return JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    return context;
+                }
+            },
+            
+            async markAsFalsePositive() {
+                const reason = prompt('Please provide a reason for marking this as a false positive:');
+                if (!reason) return;
+                
+                const analystName = prompt('Please enter your name:');
+                if (!analystName) return;
+                
+                try {
+                    const response = await fetch(`/api/events/${this.event.id}/false-positive`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            reason: reason,
+                            analyst_name: analystName
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        await this.loadEvent(); // Refresh event data
+                    } else {
+                        alert('Error marking event as false positive');
+                    }
+                } catch (error) {
+                    console.error('Error marking false positive:', error);
+                    alert('Error marking event as false positive');
+                }
+            }
+        }" x-init="init()">
+            <div class="card-header">
+                <h2 x-show="!loading" x-text="event ? `Event Details: ${event.id}` : 'Event Details'">Event Details</h2>
+                <h2 x-show="loading">Loading...</h2>
+                <div class="card-actions">
+                    <a href="events.html" class="btn">Back to Events</a>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div x-show="loading" class="loading-state">
+                <p>Loading event details...</p>
+            </div>
+            
+            <!-- Event Information -->
+            <div x-show="!loading && event" class="event-info">
+                <h3>Event Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Event ID:</label>
+                        <span x-text="event.id"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Detection:</label>
+                        <span x-text="detection ? detection.name : `Detection ${event.detection_id}`"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Entity:</label>
+                        <span x-text="riskObject ? `${riskObject.entity_value} (${riskObject.entity_type})` : `Entity ${event.entity_id}`"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Timestamp:</label>
+                        <span x-text="formatTimestamp(event.timestamp)"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Risk Points:</label>
+                        <span x-text="event.risk_points"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Status:</label>
+                        <span x-text="getFalsePositiveText(event.is_false_positive)" 
+                              :class="getFalsePositiveClass(event.is_false_positive)"></span>
+                    </div>
+                </div>
+                
+                <!-- Raw Data -->
+                <div class="info-section" x-show="event.raw_data">
+                    <label>Raw Data:</label>
+                    <pre class="raw-data" x-text="event.raw_data"></pre>
+                </div>
+                
+                <!-- Context Information -->
+                <div class="info-section">
+                    <label>Context Information:</label>
+                    <pre class="context-data" x-text="formatContext(event.context)"></pre>
+                </div>
+                
+                <!-- Actions -->
+                <div class="event-actions" x-show="!event.is_false_positive">
+                    <button class="btn btn-warning" @click="markAsFalsePositive()">
+                        Mark as False Positive
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Detection Information -->
+            <div x-show="!loading && detection" class="detection-info">
+                <h3>Detection Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Name:</label>
+                        <span x-text="detection.name"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Status:</label>
+                        <span x-text="detection.status" :class="`status status-${detection.status}`"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Severity:</label>
+                        <span x-text="detection.severity" :class="`badge badge-${detection.severity === 'low' ? 'secondary' : detection.severity === 'medium' ? 'warning' : 'danger'}`"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Owner:</label>
+                        <span x-text="detection.owner || 'Not assigned'"></span>
+                    </div>
+                </div>
+                
+                <div class="info-section" x-show="detection.description">
+                    <label>Description:</label>
+                    <p x-text="detection.description"></p>
+                </div>
+            </div>
+            
+            <!-- Data Sources -->
+            <div x-show="!loading && dataSources.length > 0" class="data-sources-info">
+                <h3>Data Sources</h3>
+                <div class="data-sources-list">
+                    <template x-for="dataSource in dataSources" :key="dataSource.id">
+                        <div class="data-source-item">
+                            <div class="data-source-name" x-text="dataSource.name"></div>
+                            <div class="data-source-description" x-text="dataSource.description || 'No description'"></div>
+                            <div class="data-source-format" x-show="dataSource.log_format">
+                                Format: <span x-text="dataSource.log_format"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            
+            <!-- Risk Object Information -->
+            <div x-show="!loading && riskObject" class="risk-object-info">
+                <h3>Risk Object Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Entity Type:</label>
+                        <span x-text="riskObject.entity_type"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Entity Value:</label>
+                        <span x-text="riskObject.entity_value"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Current Risk Score:</label>
+                        <span x-text="riskObject.current_score"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Last Seen:</label>
+                        <span x-text="formatTimestamp(riskObject.last_seen)"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .loading-state {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        .event-info, .detection-info, .data-sources-info, .risk-object-info {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .event-info h3, .detection-info h3, .data-sources-info h3, .risk-object-info h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-item label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-item span, .info-item p {
+            color: #666;
+            margin: 0;
+        }
+        
+        .info-section {
+            margin-top: 1rem;
+        }
+        
+        .info-section label {
+            font-weight: 600;
+            color: #333;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        
+        .raw-data, .context-data {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .event-actions {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .data-sources-list {
+            display: grid;
+            gap: 1rem;
+        }
+        
+        .data-source-item {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .data-source-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .data-source-description {
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+        
+        .data-source-format {
+            font-size: 0.9rem;
+            color: #888;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .badge-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge-secondary {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .badge-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-idea { background-color: #e3f2fd; color: #0d47a1; }
+        .status-draft { background-color: #e8f5e9; color: #1b5e20; }
+        .status-test { background-color: #fff3e0; color: #e65100; }
+        .status-production { background-color: #e8eaf6; color: #303f9f; }
+        .status-retired { background-color: #fafafa; color: #616161; }
+    </style>
+</body>
+</html>

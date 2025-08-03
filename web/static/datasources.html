@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Sources - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html" class="active">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="risk-alerts.html">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            dataSources: [],
+            filteredDataSources: [],
+            searchTerm: '',
+            showForm: false,
+            newDataSource: {
+                name: '',
+                description: '',
+                log_format: ''
+            },
+            selectedDataSource: null,
+            utilization: {},
+            associatedDetections: [],
+            associatedTechniques: [],
+            
+            async fetchDataSources() {
+                const response = await fetch('/api/datasources');
+                if (response.ok) {
+                    this.dataSources = await response.json();
+                    this.applyFilters();
+                }
+            },
+            
+            async fetchUtilization() {
+                const response = await fetch('/api/datasources/utilization');
+                if (response.ok) {
+                    this.utilization = await response.json();
+                    this.renderUtilizationChart();
+                }
+            },
+            
+            applyFilters() {
+                this.filteredDataSources = this.dataSources.filter(ds => {
+                    const matchesSearch = this.searchTerm === '' || 
+                        ds.name.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
+                        (ds.description && ds.description.toLowerCase().includes(this.searchTerm.toLowerCase()));
+                    return matchesSearch;
+                });
+            },
+            
+            async createDataSource() {
+                const response = await fetch('/api/datasources', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.newDataSource)
+                });
+                
+                if (response.ok) {
+                    this.showForm = false;
+                    this.newDataSource = {
+                        name: '',
+                        description: '',
+                        log_format: ''
+                    };
+                    await this.fetchDataSources();
+                    await this.fetchUtilization();
+                }
+            },
+            
+            async selectDataSource(id) {
+                const response = await fetch(`/api/datasources/${id}`);
+                if (response.ok) {
+                    this.selectedDataSource = await response.json();
+                    await this.fetchAssociatedDetections(id);
+                    await this.fetchAssociatedTechniques(id);
+                }
+            },
+            
+            async fetchAssociatedDetections(id) {
+                const response = await fetch(`/api/datasources/id/${id}/detections`);
+                if (response.ok) {
+                    this.associatedDetections = await response.json();
+                } else {
+                    this.associatedDetections = [];
+                }
+            },
+            
+            async fetchAssociatedTechniques(id) {
+                const response = await fetch(`/api/datasources/id/${id}/techniques`);
+                if (response.ok) {
+                    this.associatedTechniques = await response.json();
+                } else {
+                    this.associatedTechniques = [];
+                }
+            },
+            
+            async updateDataSource() {
+                const response = await fetch(`/api/datasources/${this.selectedDataSource.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.selectedDataSource)
+                });
+                
+                if (response.ok) {
+                    this.selectedDataSource = null;
+                    await this.fetchDataSources();
+                    await this.fetchUtilization();
+                }
+            },
+            
+            async deleteDataSource(id) {
+                if (!confirm('Are you sure you want to delete this data source?')) {
+                    return;
+                }
+                
+                const response = await fetch(`/api/datasources/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    this.selectedDataSource = null;
+                    await this.fetchDataSources();
+                    await this.fetchUtilization();
+                }
+            },
+            
+            renderUtilizationChart() {
+                if (!this.utilization || Object.keys(this.utilization).length === 0) return;
+                
+                const ctx = document.getElementById('utilizationChart');
+                if (!ctx) return;
+                
+                // Destroy existing chart if it exists
+                if (this.chart) {
+                    this.chart.destroy();
+                }
+                
+                const labels = Object.keys(this.utilization);
+                const data = Object.values(this.utilization);
+                
+                this.chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Number of Detections',
+                            data: data,
+                            backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                            borderColor: 'rgba(52, 152, 219, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Detections'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Data Sources'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }" x-init="fetchDataSources(); fetchUtilization()">
+            <div class="card-header">
+                <h2>Data Sources</h2>
+                <div class="card-actions">
+                    <button class="btn btn-primary" @click="showForm = true" x-show="!showForm && !selectedDataSource">Add Data Source</button>
+                </div>
+            </div>
+            
+            <!-- Utilization Overview -->
+            <div class="utilization-overview" x-show="!showForm && !selectedDataSource">
+                <h3>Data Source Utilization</h3>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="utilizationChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="filters" x-show="!showForm && !selectedDataSource">
+                <div class="form-group">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search data sources...">
+                </div>
+            </div>
+            
+            <!-- Data Source List -->
+            <div class="datasource-list" x-show="!showForm && !selectedDataSource">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Log Format</th>
+                            <th>Detections</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="dataSource in filteredDataSources" :key="dataSource.id">
+                            <tr>
+                                <td x-text="dataSource.name"></td>
+                                <td x-text="dataSource.description || 'No description'"></td>
+                                <td x-text="dataSource.log_format || 'Not specified'"></td>
+                                <td x-text="utilization[dataSource.name] || 0"></td>
+                                <td>
+                                    <button class="btn btn-secondary" @click="selectDataSource(dataSource.id)">Edit</button>
+                                    <button class="btn btn-danger" @click="deleteDataSource(dataSource.id)">Delete</button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="filteredDataSources.length === 0">
+                            <td colspan="5" class="text-center">No data sources found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- New Data Source Form -->
+            <div class="datasource-form" x-show="showForm">
+                <h3>Add New Data Source</h3>
+                <form @submit.prevent="createDataSource()">
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" x-model="newDataSource.name" required>
+                        <small>Example: sysmon, cloudtrail, windows_event_logs</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" x-model="newDataSource.description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="log-format">Log Format</label>
+                        <input type="text" id="log-format" x-model="newDataSource.log_format">
+                        <small>Example: JSON, XML, CEF, LEEF</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Save</button>
+                        <button type="button" class="btn" @click="showForm = false">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Data Source Details -->
+            <div class="datasource-details" x-show="selectedDataSource">
+                <h3>Edit Data Source</h3>
+                <form @submit.prevent="updateDataSource()">
+                    <div class="form-group">
+                        <label for="edit-name">Name</label>
+                        <input type="text" id="edit-name" x-model="selectedDataSource.name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-description">Description</label>
+                        <textarea id="edit-description" x-model="selectedDataSource.description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-log-format">Log Format</label>
+                        <input type="text" id="edit-log-format" x-model="selectedDataSource.log_format">
+                    </div>
+                    
+                    <!-- Associated Detections -->
+                    <div class="related-data">
+                        <h4>Associated Detections</h4>
+                        <div x-show="associatedDetections.length === 0" class="empty-state">
+                            No detections associated with this data source.
+                        </div>
+                        <table x-show="associatedDetections.length > 0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Severity</th>
+                                    <th>Risk Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="detection in associatedDetections" :key="detection.id">
+                                    <tr>
+                                        <td x-text="detection.name"></td>
+                                        <td>
+                                            <span x-text="detection.status" :class="`status status-${detection.status}`"></span>
+                                        </td>
+                                        <td>
+                                            <span x-text="detection.severity" :class="`badge badge-${detection.severity === 'low' ? 'secondary' : detection.severity === 'medium' ? 'warning' : 'danger'}`"></span>
+                                        </td>
+                                        <td x-text="detection.risk_points"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Associated MITRE Techniques -->
+                    <div class="related-data">
+                        <h4>Associated MITRE Techniques</h4>
+                        <div x-show="associatedTechniques.length === 0" class="empty-state">
+                            No MITRE techniques associated with this data source.
+                        </div>
+                        <table x-show="associatedTechniques.length > 0">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Tactic</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="technique in associatedTechniques" :key="technique.id">
+                                    <tr>
+                                        <td>
+                                            <span class="technique-id" x-text="technique.id"></span>
+                                        </td>
+                                        <td x-text="technique.name"></td>
+                                        <td>
+                                            <span class="badge badge-primary" x-text="technique.tactic"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Update</button>
+                        <button type="button" class="btn" @click="selectedDataSource = null; associatedDetections = []; associatedTechniques = []">Back</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .utilization-overview {
+            margin-bottom: 2rem;
+        }
+        
+        .filters {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .related-data {
+            margin-top: 1.5rem;
+        }
+        
+        .related-data h4 {
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+        
+        small {
+            display: block;
+            margin-top: 0.25rem;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+    </style>
+</body>
+</html>

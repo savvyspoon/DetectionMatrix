@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Alert Details - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="risk-alerts.html" class="active">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            alert: null,
+            riskObject: null,
+            events: [],
+            detections: {},
+            loading: true,
+            alertId: null,
+            
+            init() {
+                const urlParams = new URLSearchParams(window.location.search);
+                this.alertId = urlParams.get('id');
+                if (this.alertId) {
+                    this.fetchAlertDetails();
+                }
+            },
+            
+            async fetchAlertDetails() {
+                this.loading = true;
+                try {
+                    // Fetch alert details
+                    const alertResponse = await fetch(`/api/risk/alerts/${this.alertId}`);
+                    if (alertResponse.ok) {
+                        this.alert = await alertResponse.json();
+                        await this.fetchRiskObject();
+                        await this.fetchEvents();
+                        await this.fetchDetections();
+                    }
+                } catch (error) {
+                    console.error('Error fetching alert details:', error);
+                } finally {
+                    this.loading = false;
+                }
+            },
+            
+            async fetchRiskObject() {
+                if (!this.alert) return;
+                
+                const response = await fetch(`/api/risk/objects/${this.alert.entity_id}`);
+                if (response.ok) {
+                    this.riskObject = await response.json();
+                }
+            },
+            
+            async fetchEvents() {
+                if (!this.alert) return;
+                
+                const response = await fetch(`/api/risk/alerts/${this.alertId}/events`);
+                if (response.ok) {
+                    this.events = await response.json();
+                }
+            },
+            
+            async fetchDetections() {
+                const response = await fetch('/api/detections');
+                if (response.ok) {
+                    const detectionsList = await response.json();
+                    this.detections = {};
+                    detectionsList.forEach(d => {
+                        this.detections[d.id] = d;
+                    });
+                }
+            },
+            
+            formatTimestamp(timestamp) {
+                return new Date(timestamp).toLocaleString();
+            },
+            
+            getRiskLevelClass(score) {
+                if (score >= 80) return 'risk-critical';
+                if (score >= 60) return 'risk-high';
+                if (score >= 40) return 'risk-medium';
+                return 'risk-low';
+            },
+            
+            getRiskLevelText(score) {
+                if (score >= 80) return 'Critical';
+                if (score >= 60) return 'High';
+                if (score >= 40) return 'Medium';
+                return 'Low';
+            },
+            
+            getDetectionName(detectionId) {
+                return this.detections[detectionId]?.name || `Detection ${detectionId}`;
+            },
+            
+            parseContext(contextStr) {
+                if (!contextStr) return null;
+                try {
+                    return JSON.parse(contextStr);
+                } catch (e) {
+                    return null;
+                }
+            },
+            
+            async updateAlert() {
+                if (!this.alert) return;
+                
+                try {
+                    const response = await fetch(`/api/risk/alerts/${this.alert.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            id: this.alert.id,
+                            entity_id: this.alert.entity_id,
+                            triggered_at: this.alert.triggered_at,
+                            total_score: this.alert.total_score,
+                            status: this.alert.status,
+                            notes: this.alert.notes,
+                            owner: this.alert.owner
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const updatedAlert = await response.json();
+                        this.alert = updatedAlert;
+                        alert('Alert updated successfully!');
+                    } else {
+                        alert('Error updating alert. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error updating alert:', error);
+                    alert('Error updating alert. Please try again.');
+                }
+            }
+        }" x-init="init()">
+            
+            <!-- Back Button -->
+            <div class="back-button">
+                <a href="risk-alerts.html" class="btn">← Back to Risk Alerts</a>
+            </div>
+            
+            <!-- Loading State -->
+            <div x-show="loading" class="loading-state">
+                <p>Loading alert details...</p>
+            </div>
+            
+            <!-- Alert Details -->
+            <div x-show="!loading && alert" class="alert-details">
+                <div class="alert-header">
+                    <h2>Risk Alert #<span x-text="alert.id"></span></h2>
+                    <div class="alert-meta">
+                        <span x-text="getRiskLevelText(alert.total_score)" 
+                              :class="'badge ' + getRiskLevelClass(alert.total_score)"></span>
+                    </div>
+                </div>
+                
+                <!-- Alert Information -->
+                <div class="alert-info">
+                    <h3>Alert Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>Alert ID:</label>
+                            <span x-text="alert.id"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Risk Score:</label>
+                            <span x-text="alert.total_score"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Risk Level:</label>
+                            <span x-text="getRiskLevelText(alert.total_score)" 
+                                  :class="'badge ' + getRiskLevelClass(alert.total_score)"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Triggered At:</label>
+                            <span x-text="formatTimestamp(alert.triggered_at)"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Status:</label>
+                            <span x-text="alert.status || 'New'"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Owner:</label>
+                            <span x-text="alert.owner || 'Unassigned'"></span>
+                        </div>
+                    </div>
+                    <div class="info-item" x-show="alert.notes">
+                        <label>Notes:</label>
+                        <p x-text="alert.notes"></p>
+                    </div>
+                </div>
+                
+                <!-- Alert Management -->
+                <div class="alert-management">
+                    <h3>Alert Management</h3>
+                    <form @submit.prevent="updateAlert()">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="alert-status">Status</label>
+                                <select id="alert-status" x-model="alert.status">
+                                    <option value="New">New</option>
+                                    <option value="Triage">Triage</option>
+                                    <option value="Investigation">Investigation</option>
+                                    <option value="On Hold">On Hold</option>
+                                    <option value="Incident">Incident</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="alert-owner">Owner</label>
+                                <input type="text" id="alert-owner" x-model="alert.owner" placeholder="Assign to analyst">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="alert-notes">Notes</label>
+                            <textarea id="alert-notes" x-model="alert.notes" rows="4" placeholder="Add notes about this alert..."></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Update Alert</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Entity Information -->
+                <div x-show="riskObject" class="entity-info">
+                    <h3>Entity Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>Entity Type:</label>
+                            <span x-text="riskObject.entity_type"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Entity Value:</label>
+                            <span x-text="riskObject.entity_value"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Current Score:</label>
+                            <span x-text="riskObject.current_score"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Last Seen:</label>
+                            <span x-text="formatTimestamp(riskObject.last_seen)"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Contributing Events -->
+                <div class="contributing-events">
+                    <h3>Contributing Events</h3>
+                    <div x-show="events.length === 0" class="empty-state">
+                        No events found for this alert.
+                    </div>
+                    <div x-show="events.length > 0" class="events-list">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Event ID</th>
+                                    <th>Detection</th>
+                                    <th>Risk Points</th>
+                                    <th>Timestamp</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="event in events" :key="event.id">
+                                    <tr>
+                                        <td x-text="event.id"></td>
+                                        <td x-text="getDetectionName(event.detection_id)"></td>
+                                        <td x-text="event.risk_points"></td>
+                                        <td x-text="formatTimestamp(event.timestamp)"></td>
+                                        <td>
+                                            <a :href="`events-detail.html?id=${event.id}`" class="btn btn-secondary btn-sm">View Event</a>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Event Details Expandable -->
+                <div class="event-details-section">
+                    <h3>Event Details</h3>
+                    <template x-for="event in events.slice(0, 5)" :key="event.id">
+                        <div class="event-detail-card">
+                            <div class="event-header">
+                                <h4>Event #<span x-text="event.id"></span> - <span x-text="getDetectionName(event.detection_id)"></span></h4>
+                                <span class="event-timestamp" x-text="formatTimestamp(event.timestamp)"></span>
+                            </div>
+                            <div class="event-content">
+                                <div class="event-raw-data" x-show="event.raw_data">
+                                    <strong>Raw Data:</strong>
+                                    <p x-text="event.raw_data"></p>
+                                </div>
+                                <div class="event-context" x-show="event.context">
+                                    <strong>Context:</strong>
+                                    <template x-if="parseContext(event.context)">
+                                        <div class="context-grid">
+                                            <template x-for="[key, value] in Object.entries(parseContext(event.context))" :key="key">
+                                                <div class="context-item">
+                                                    <span class="context-key" x-text="key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>:
+                                                    <span class="context-value" x-text="Array.isArray(value) ? value.join(', ') : value"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="events.length > 5" class="more-events">
+                        <p><strong x-text="events.length - 5"></strong> more events contributed to this alert. <a href="events.html">View all events</a></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Error State -->
+            <div x-show="!loading && !alert" class="error-state">
+                <h3>Alert Not Found</h3>
+                <p>The requested risk alert could not be found.</p>
+                <a href="risk-alerts.html" class="btn">Back to Risk Alerts</a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .back-button {
+            margin-bottom: 1.5rem;
+        }
+        
+        .loading-state, .error-state {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .alert-meta {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .alert-info, .entity-info, .contributing-events, .event-details-section {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .alert-info h3, .entity-info h3, .contributing-events h3, .event-details-section h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-item label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-item span {
+            color: #666;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            width: fit-content;
+        }
+        
+        .risk-low {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .risk-medium {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .risk-high {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .risk-critical {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .empty-state {
+            padding: 1rem;
+            background-color: white;
+            border-radius: 4px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .events-list table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .events-list th,
+        .events-list td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .events-list th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .event-detail-card {
+            background-color: white;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #dee2e6;
+        }
+        
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .event-header h4 {
+            margin: 0;
+            color: #333;
+        }
+        
+        .event-timestamp {
+            color: #666;
+            font-size: 0.875rem;
+        }
+        
+        .event-content {
+            margin-top: 1rem;
+        }
+        
+        .event-raw-data, .event-context {
+            margin-bottom: 1rem;
+        }
+        
+        .event-raw-data p {
+            background-color: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin: 0.5rem 0 0 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        
+        .context-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .context-item {
+            background-color: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+        
+        .context-key {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .context-value {
+            color: #666;
+        }
+        
+        .more-events {
+            text-align: center;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</body>
+</html>

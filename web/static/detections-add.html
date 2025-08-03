@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Detection - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html" class="active">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="risk-alerts.html">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            newDetection: {
+                name: '',
+                description: '',
+                status: 'idea',
+                severity: 'medium',
+                risk_points: 50,
+                playbook_link: '',
+                owner: '',
+                risk_object: '',
+                testing_description: '',
+            },
+            
+            async createDetection() {
+                const response = await fetch('/api/detections', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.newDetection)
+                });
+                
+                if (response.ok) {
+                    // Redirect back to the list view
+                    window.location.href = 'detections-list.html';
+                } else {
+                    alert('Error creating detection. Please try again.');
+                }
+            }
+        }">
+            <div class="card-header">
+                <h2>Add New Detection</h2>
+                <div class="card-actions">
+                    <a href="detections-list.html" class="btn">Back to List</a>
+                </div>
+            </div>
+            
+            <!-- New Detection Form -->
+            <div class="detection-form">
+                <form @submit.prevent="createDetection()">
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" x-model="newDetection.name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" x-model="newDetection.description" required></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="status">Status</label>
+                            <select id="status" x-model="newDetection.status">
+                                <option value="idea">Idea</option>
+                                <option value="draft">Draft</option>
+                                <option value="test">Test</option>
+                                <option value="production">Production</option>
+                                <option value="retired">Retired</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="severity">Severity</label>
+                            <select id="severity" x-model="newDetection.severity">
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="risk-points">Risk Points</label>
+                        <input type="number" id="risk-points" x-model.number="newDetection.risk_points" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="playbook-link">Playbook Link</label>
+                        <input type="text" id="playbook-link" x-model="newDetection.playbook_link">
+                    </div>
+                    <div class="form-group">
+                        <label for="owner">Owner</label>
+                        <input type="text" id="owner" x-model="newDetection.owner" placeholder="Detection owner/analyst name">
+                    </div>
+                    <div class="form-group">
+                        <label for="risk-object">Risk Object</label>
+                        <select id="risk-object" x-model="newDetection.risk_object">
+                            <option value="">-- Select Risk Object Type --</option>
+                            <option value="IP">IP</option>
+                            <option value="Host">Host</option>
+                            <option value="User">User</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="testing-description">Testing Description</label>
+                        <textarea id="testing-description" x-model="newDetection.testing_description" placeholder="Describe how this detection was tested and validated"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Save Detection</button>
+                        <a href="detections-list.html" class="btn">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+    </style>
+</body>
+</html>

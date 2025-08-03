@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Details - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html" class="active">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="/alerts">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            detection: null,
+            dataSources: [],
+            mitreTechniques: [],
+            selectedDataSource: null,
+            selectedMitreTechnique: null,
+            eventCount: 0,
+            falsePositiveCount: 0,
+            loading: true,
+            
+            async init() {
+                await this.fetchDataSources();
+                await this.fetchMitreTechniques();
+                await this.loadDetection();
+            },
+            
+            async loadDetection() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const id = urlParams.get('id');
+                
+                if (!id) {
+                    alert('No detection ID provided');
+                    window.location.href = 'detections-list.html';
+                    return;
+                }
+                
+                const response = await fetch(`/api/detections/${id}`);
+                if (response.ok) {
+                    this.detection = await response.json();
+                    await this.loadEventCounts(id);
+                    this.loading = false;
+                } else {
+                    alert('Detection not found');
+                    window.location.href = 'detections-list.html';
+                }
+            },
+            
+            async loadEventCounts(detectionId) {
+                try {
+                    const eventCountResponse = await fetch(`/api/detections/${detectionId}/events/count/30days`);
+                    if (eventCountResponse.ok) {
+                        const eventData = await eventCountResponse.json();
+                        this.eventCount = eventData.count;
+                    }
+                    
+                    const fpCountResponse = await fetch(`/api/detections/${detectionId}/false-positives/count/30days`);
+                    if (fpCountResponse.ok) {
+                        const fpData = await fpCountResponse.json();
+                        this.falsePositiveCount = fpData.count;
+                    }
+                } catch (error) {
+                    console.error('Error loading event counts:', error);
+                }
+            },
+            
+            async fetchDataSources() {
+                const response = await fetch('/api/datasources');
+                if (response.ok) {
+                    this.dataSources = await response.json();
+                }
+            },
+            
+            async fetchMitreTechniques() {
+                const response = await fetch('/api/mitre/techniques');
+                if (response.ok) {
+                    this.mitreTechniques = await response.json();
+                }
+            },
+            
+            async updateDetection() {
+                const response = await fetch(`/api/detections/${this.detection.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.detection)
+                });
+                
+                if (response.ok) {
+                    alert('Detection updated successfully');
+                    await this.loadDetection(); // Refresh the data
+                } else {
+                    alert('Error updating detection. Please try again.');
+                }
+            },
+            
+            async addDataSource(detectionId, dataSourceId) {
+                if (!dataSourceId) return;
+                
+                const response = await fetch(`/api/detections/${detectionId}/datasource/${dataSourceId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    await this.loadDetection(); // Refresh to show updated data sources
+                    this.selectedDataSource = ''; // Reset selection
+                } else {
+                    alert('Error adding data source');
+                }
+            },
+            
+            async removeDataSource(detectionId, dataSourceId) {
+                if (!confirm('Are you sure you want to remove this data source?')) {
+                    return;
+                }
+                
+                const response = await fetch(`/api/detections/${detectionId}/datasource/${dataSourceId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    await this.loadDetection(); // Refresh to show updated data sources
+                } else {
+                    alert('Error removing data source');
+                }
+            },
+            
+            async addMitreTechnique(detectionId, techniqueId) {
+                if (!techniqueId) return;
+                
+                const response = await fetch(`/api/detections/${detectionId}/mitre/${techniqueId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    await this.loadDetection(); // Refresh to show updated MITRE techniques
+                    this.selectedMitreTechnique = ''; // Reset selection
+                } else {
+                    alert('Error adding MITRE technique');
+                }
+            },
+            
+            async removeMitreTechnique(detectionId, techniqueId) {
+                if (!confirm('Are you sure you want to remove this MITRE technique?')) {
+                    return;
+                }
+                
+                const response = await fetch(`/api/detections/${detectionId}/mitre/${techniqueId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    await this.loadDetection(); // Refresh to show updated MITRE techniques
+                } else {
+                    alert('Error removing MITRE technique');
+                }
+            }
+        }" x-init="init()">
+            <div class="card-header">
+                <h2 x-show="!loading" x-text="detection ? `Detection: ${detection.name}` : 'Detection Details'">Detection Details</h2>
+                <h2 x-show="loading">Loading...</h2>
+                <div class="card-actions">
+                    <a href="detections-list.html" class="btn">Back to List</a>
+                </div>
+            </div>
+            
+            <!-- Loading State -->
+            <div x-show="loading" class="loading-state">
+                <p>Loading detection details...</p>
+            </div>
+            
+            <!-- Detection Information Display -->
+            <div x-show="!loading && detection" class="detection-info">
+                <h3>Detection Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Owner:</label>
+                        <span x-text="detection.owner || 'Not assigned'"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Risk Object:</label>
+                        <span x-text="detection.risk_object || 'Not specified'"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>Event Count (Last 30 Days):</label>
+                        <span x-text="eventCount"></span>
+                    </div>
+                    <div class="info-item">
+                        <label>False Positives (Last 30 Days):</label>
+                        <span x-text="falsePositiveCount"></span>
+                    </div>
+                </div>
+                <div class="info-item" x-show="detection.testing_description">
+                    <label>Testing Description:</label>
+                    <p x-text="detection.testing_description"></p>
+                </div>
+            </div>
+
+            <!-- Detection Details Form -->
+            <div x-show="!loading && detection" class="detection-details">
+                <h3>Edit Detection</h3>
+                <form @submit.prevent="updateDetection()">
+                    <div class="form-group">
+                        <label for="edit-name">Name</label>
+                        <input type="text" id="edit-name" x-model="detection.name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-description">Description</label>
+                        <textarea id="edit-description" x-model="detection.description" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-query">Query</label>
+                        <textarea id="edit-query" x-model="detection.query" placeholder="Enter your detection query logic here..." rows="4"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-status">Status</label>
+                            <select id="edit-status" x-model="detection.status">
+                                <option value="idea">Idea</option>
+                                <option value="draft">Draft</option>
+                                <option value="test">Test</option>
+                                <option value="production">Production</option>
+                                <option value="retired">Retired</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-severity">Severity</label>
+                            <select id="edit-severity" x-model="detection.severity">
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-risk-points">Risk Points</label>
+                        <input type="number" id="edit-risk-points" x-model.number="detection.risk_points" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-playbook-link">Playbook Link</label>
+                        <input type="text" id="edit-playbook-link" x-model="detection.playbook_link">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-owner">Owner</label>
+                        <input type="text" id="edit-owner" x-model="detection.owner" placeholder="Detection owner/analyst name">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-risk-object">Risk Object</label>
+                        <select id="edit-risk-object" x-model="detection.risk_object">
+                            <option value="">-- Select Risk Object Type --</option>
+                            <option value="IP">IP</option>
+                            <option value="Host">Host</option>
+                            <option value="User">User</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-testing-description">Testing Description</label>
+                        <textarea id="edit-testing-description" x-model="detection.testing_description" placeholder="Describe how this detection was tested and validated"></textarea>
+                    </div>
+                    
+                    <!-- MITRE Techniques -->
+                    <div class="related-data">
+                        <h4>MITRE Techniques</h4>
+                        <div class="mitre-techniques">
+                            <template x-if="detection.mitre_techniques && detection.mitre_techniques.length > 0">
+                                <ul class="technique-list">
+                                    <template x-for="technique in detection.mitre_techniques" :key="technique.id">
+                                        <li>
+                                            <span x-text="`${technique.id} - ${technique.name} (${technique.tactic})`"></span>
+                                            <button type="button" class="btn btn-sm btn-danger" 
+                                                @click="removeMitreTechnique(detection.id, technique.id)">
+                                                Remove
+                                            </button>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <div x-show="!detection.mitre_techniques || detection.mitre_techniques.length === 0">
+                                No MITRE techniques associated
+                            </div>
+                            
+                            <!-- Add MITRE Technique -->
+                            <div class="add-mitre-technique">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <select x-model="selectedMitreTechnique" class="form-control">
+                                            <option value="">-- Select a MITRE Technique --</option>
+                                            <template x-for="technique in mitreTechniques" :key="technique.id">
+                                                <option :value="technique.id" x-text="`${technique.id} - ${technique.name} (${technique.tactic})`"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <button type="button" class="btn btn-primary" 
+                                            @click="addMitreTechnique(detection.id, selectedMitreTechnique)"
+                                            :disabled="!selectedMitreTechnique">
+                                            Add MITRE Technique
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Data Sources -->
+                    <div class="related-data">
+                        <h4>Data Sources</h4>
+                        <div class="data-sources">
+                            <template x-if="detection.data_sources && detection.data_sources.length > 0">
+                                <ul class="source-list">
+                                    <template x-for="source in detection.data_sources" :key="source.id">
+                                        <li>
+                                            <span x-text="`${source.name} - ${source.description || 'No description'}`"></span>
+                                            <button type="button" class="btn btn-sm btn-danger" 
+                                                @click="removeDataSource(detection.id, source.id)">
+                                                Remove
+                                            </button>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </template>
+                            <div x-show="!detection.data_sources || detection.data_sources.length === 0">
+                                No data sources associated
+                            </div>
+                            
+                            <!-- Add Data Source -->
+                            <div class="add-data-source">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <select x-model="selectedDataSource" class="form-control">
+                                            <option value="">-- Select a Data Source --</option>
+                                            <template x-for="source in dataSources" :key="source.id">
+                                                <option :value="source.id" x-text="`${source.name} - ${source.description || 'No description'}`"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <button type="button" class="btn btn-primary" 
+                                            @click="addDataSource(detection.id, selectedDataSource)"
+                                            :disabled="!selectedDataSource">
+                                            Add Data Source
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Update Detection</button>
+                        <a href="detections-list.html" class="btn">Back to List</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .loading-state {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .related-data {
+            margin-top: 1.5rem;
+        }
+        
+        .related-data h4 {
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+        
+        .technique-list, .source-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .technique-list li, .source-list li {
+            padding: 0.5rem;
+            background-color: var(--light-bg);
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .source-list .btn-sm, .technique-list .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        /* MITRE Technique Styles */
+        .add-mitre-technique {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        /* Data Source Styles */
+        .add-data-source {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        /* Detection Information Display Styles */
+        .detection-info {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .detection-info h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-item label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-item span, .info-item p {
+            color: #666;
+            margin: 0;
+        }
+        
+        .info-item p {
+            background-color: white;
+            padding: 0.75rem;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            margin-top: 0.5rem;
+        }
+    </style>
+</body>
+</html>

@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MITRE ATT&CK - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html" class="active">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="/alerts">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="card" x-data="{
+            techniques: [],
+            filteredTechniques: [],
+            tacticFilter: 'all',
+            searchTerm: '',
+            coverage: {},
+            selectedTechnique: null,
+            detectionsByTechnique: [],
+            techniqueDetectionCounts: {},
+            
+            async fetchTechniques() {
+                const response = await fetch('/api/mitre/techniques');
+                if (response.ok) {
+                    this.techniques = await response.json();
+                    this.applyFilters();
+                }
+            },
+            
+            async fetchDetectionCountsByTactic() {
+                // Calculate detection counts by tactic from technique detection counts
+                const tacticCounts = {};
+                
+                // First ensure we have technique detection counts
+                if (Object.keys(this.techniqueDetectionCounts).length === 0) {
+                    await this.fetchTechniqueDetectionCounts();
+                }
+                
+                // Group techniques by tactic and sum detection counts
+                this.techniques.forEach(technique => {
+                    const tactic = technique.tactic;
+                    const detectionCount = this.techniqueDetectionCounts[technique.id] || 0;
+                    
+                    if (!tacticCounts[tactic]) {
+                        tacticCounts[tactic] = 0;
+                    }
+                    tacticCounts[tactic] += detectionCount;
+                });
+                
+                this.coverage = tacticCounts;
+                this.renderCoverageChart();
+            },
+            
+            applyFilters() {
+                this.filteredTechniques = this.techniques.filter(t => {
+                    const matchesTactic = this.tacticFilter === 'all' || t.tactic === this.tacticFilter;
+                    const matchesSearch = this.searchTerm === '' || 
+                        t.id.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
+                        t.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+                        t.description?.toLowerCase().includes(this.searchTerm.toLowerCase());
+                    return matchesTactic && matchesSearch;
+                });
+            },
+            
+            async selectTechnique(id) {
+                const response = await fetch(`/api/mitre/techniques/${id}`);
+                if (response.ok) {
+                    this.selectedTechnique = await response.json();
+                    this.fetchDetectionsByTechnique(id);
+                }
+            },
+            
+            async fetchDetectionsByTechnique(id) {
+                const response = await fetch(`/api/mitre/techniques/${id}/detections`);
+                if (response.ok) {
+                    this.detectionsByTechnique = await response.json();
+                }
+            },
+            
+            async fetchTechniqueDetectionCounts() {
+                // Fetch detection counts for all techniques
+                const newCounts = {};
+                for (const technique of this.techniques) {
+                    try {
+                        const response = await fetch(`/api/mitre/techniques/${technique.id}/detections`);
+                        if (response.ok) {
+                            const detections = await response.json();
+                            newCounts[technique.id] = detections.length;
+                        } else {
+                            newCounts[technique.id] = 0;
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching detections for technique ${technique.id}:`, error);
+                        newCounts[technique.id] = 0;
+                    }
+                }
+                // Update the reactive data property to trigger re-render
+                this.techniqueDetectionCounts = newCounts;
+            },
+            
+            renderCoverageChart() {
+                if (!this.coverage || Object.keys(this.coverage).length === 0) return;
+                
+                const ctx = document.getElementById('coverageChart');
+                if (!ctx) return;
+                
+                // Destroy existing chart if it exists
+                if (this.chart) {
+                    this.chart.destroy();
+                }
+                
+                const tactics = Object.keys(this.coverage);
+                const detectionCounts = tactics.map(tactic => this.coverage[tactic]);
+                
+                this.chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: tactics,
+                        datasets: [{
+                            label: 'Detection Count',
+                            data: detectionCounts,
+                            backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                            borderColor: 'rgba(52, 152, 219, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Number of Detections'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Tactics'
+                                }
+                            }
+                        }
+                    }
+                });
+            },
+            
+            renderMatrixView() {
+                // Group techniques by tactic
+                const tacticGroups = {};
+                this.techniques.forEach(technique => {
+                    if (!tacticGroups[technique.tactic]) {
+                        tacticGroups[technique.tactic] = [];
+                    }
+                    tacticGroups[technique.tactic].push(technique);
+                });
+                
+                return tacticGroups;
+            },
+            
+            getTechniqueColor(id) {
+                // Check if technique has detections using the detection counts
+                const detectionCount = this.techniqueDetectionCounts[id] || 0;
+                return detectionCount > 0 ? 'rgba(46, 204, 113, 0.7)' : 'rgba(231, 76, 60, 0.2)';
+            }
+        }" x-init="fetchTechniques().then(() => fetchTechniqueDetectionCounts()).then(() => fetchDetectionCountsByTactic())">
+            <div class="card-header">
+                <h2>Detection Count by Tactic</h2>
+            </div>
+            
+            <!-- Coverage Overview -->
+            <div class="coverage-overview">
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="coverageChart"></canvas>
+                </div>
+            </div>
+            
+            
+            <!-- Matrix View -->
+            <div class="matrix-view" x-show="!selectedTechnique">
+                <div class="matrix-header">
+                    <h3 class="matrix-title">ATT&CK Matrix</h3>
+                </div>
+                <div class="matrix-grid">
+                    <!-- Custom Tooltip -->
+                    <div class="technique-tooltip" x-ref="tooltip" style="display: none;">
+                        <div class="tooltip-header">
+                            <span class="tooltip-id" x-ref="tooltipId"></span>: 
+                            <span class="tooltip-name" x-ref="tooltipName"></span>
+                        </div>
+                        <div class="tooltip-description"></div>
+                    </div>
+                    
+                    <template x-for="(techniques, tactic) in renderMatrixView()" :key="tactic">
+                        <div class="tactic-column">
+                            <div class="tactic-header" x-text="tactic"></div>
+                            <div class="technique-container">
+                                <template x-for="technique in techniques" :key="technique.id">
+                                    <div class="technique-cell" 
+                                         @click="selectTechnique(technique.id)"
+                                         :style="`background-color: ${getTechniqueColor(technique.id)}`"
+                                         tabindex="0"
+                                         @keydown.enter="selectTechnique(technique.id)"
+                                         role="button"
+                                         :aria-label="`Technique ${technique.id}: ${technique.name}`"
+                                         @mouseenter="$refs.tooltipId.textContent = technique.id; $refs.tooltipName.textContent = technique.name; $refs.tooltip.querySelector('.tooltip-description').textContent = technique.description || 'No description available'; $refs.tooltip.style.display = 'block';"
+                                         @mouseleave="$refs.tooltip.style.display = 'none';"
+                                         @mousemove="$refs.tooltip.style.top = (event.clientY + 10) + 'px'; $refs.tooltip.style.left = (event.clientX + 10) + 'px';">
+                                        <div class="technique-id" x-text="technique.id"></div>
+                                        <div class="technique-name" x-text="technique.name"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            
+            
+            <!-- Technique Details -->
+            <div class="technique-details" x-show="selectedTechnique">
+                <!-- Breadcrumbs -->
+                <nav aria-label="breadcrumb" class="breadcrumbs">
+                    <ol>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="mitre.html">Enterprise Matrix</a></li>
+                        <li><span x-text="selectedTechnique.tactic"></span></li>
+                        <li aria-current="page">
+                            <span x-text="selectedTechnique.id + ' - ' + selectedTechnique.name"></span>
+                        </li>
+                    </ol>
+                </nav>
+                
+                <!-- Fixed Return Button -->
+                <div class="back-button">
+                    <button class="btn" @click="selectedTechnique = null; detectionsByTechnique = []">← Return to Matrix</button>
+                </div>
+                
+                <div class="technique-detail-container">
+                    <div class="technique-detail-header">
+                        <div class="technique-id-badge" x-text="selectedTechnique.id"></div>
+                        <h3 class="technique-detail-name" x-text="selectedTechnique.name"></h3>
+                        <div class="technique-meta">
+                            <span class="badge badge-primary" x-text="selectedTechnique.tactic"></span>
+                        </div>
+                    </div>
+
+                    <div class="technique-detail-content">
+                        <section class="technique-section">
+                            <h4>Description</h4>
+                            <p x-text="selectedTechnique.description || 'No description available.'"></p>
+                        </section>
+                        
+                        <!-- Associated Detections -->
+                        <section class="technique-section">
+                            <h4>Associated Detections</h4>
+                            <div x-show="detectionsByTechnique.length === 0" class="empty-state">
+                                No detections associated with this technique.
+                            </div>
+                            <table x-show="detectionsByTechnique.length > 0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Status</th>
+                                        <th>Severity</th>
+                                        <th>Risk Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="detection in detectionsByTechnique" :key="detection.id">
+                                        <tr>
+                                            <td x-text="detection.name"></td>
+                                            <td>
+                                                <span x-text="detection.status" :class="`status status-${detection.status}`"></span>
+                                            </td>
+                                            <td>
+                                                <span x-text="detection.severity" :class="`badge badge-${detection.severity === 'low' ? 'secondary' : detection.severity === 'medium' ? 'warning' : 'danger'}`"></span>
+                                            </td>
+                                            <td x-text="detection.risk_points"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </section>
+                        
+                        <!-- Placeholder for additional sections -->
+                        <section class="technique-section">
+                            <h4>Mitigations</h4>
+                            <p class="placeholder-text">Mitigation information would be displayed here.</p>
+                        </section>
+                        
+                        <section class="technique-section">
+                            <h4>Data Sources</h4>
+                            <p class="placeholder-text">Data source information would be displayed here.</p>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        /* Typography - System font stack */
+        body {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.5;
+        }
+        
+        /* Fixed Header */
+        .matrix-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 100;
+            padding: 1rem 0;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+        
+        .matrix-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .coverage-overview {
+            margin-bottom: 2rem;
+        }
+        
+        /* Horizontal Grid Layout */
+        .matrix-view {
+            margin-top: 2rem;
+            width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            padding: 0 2rem;
+        }
+        
+        .matrix-grid {
+            display: flex; /* Horizontal layout */
+            gap: 1.5rem;
+            padding-bottom: 1rem;
+            width: 100%;
+        }
+        
+        /* Tactic Columns */
+        .tactic-column {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Tactic Headers - Dark gray/navy with white text */
+        .tactic-header {
+            background: #2c3e50; /* Dark navy blue */
+            color: white;
+            padding: 1rem;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        /* Technique Container */
+        .technique-container {
+            padding: 0.5rem;
+            flex-grow: 1;
+        }
+        
+        /* Technique Blocks - Light gray with proper borders */
+        .technique-cell {
+            background: #f8f9fa; /* Very light gray */
+            border: 1px solid #dee2e6; /* Muted gray border */
+            border-radius: 4px;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+        
+        .technique-cell:hover {
+            background: #e3f2fd; /* Light blue highlight */
+            border-color: #2196f3;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .technique-cell:focus {
+            outline: none;
+            border-color: #2196f3;
+            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.4);
+        }
+        
+        .technique-cell:active,
+        .technique-cell.active {
+            border-color: #1976d2; /* Bold border */
+            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2); /* Shaded background */
+        }
+        
+        /* Typography for techniques */
+        .technique-id {
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .technique-name {
+            font-size: 13px;
+            margin-top: 0.25rem;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        /* Sub-technique styling */
+        .technique-cell.sub-technique {
+            margin-left: 1rem;
+            border-left: 3px solid #6c757d;
+            background: #f1f3f4;
+            font-size: 12px; /* Slightly smaller */
+        }
+        
+        .technique-cell.sub-technique::before {
+            content: "└";
+            position: absolute;
+            left: -0.75rem;
+            top: 0.75rem;
+            color: #6c757d;
+            font-weight: bold;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .matrix-view {
+                width: 100%;
+                margin-left: 0;
+                padding: 0 1rem;
+            }
+            
+            .matrix-grid {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .tactic-column {
+                width: 100%;
+                min-width: auto;
+                flex: none;
+            }
+            
+        }
+        
+        
+        /* Technique Details Page */
+        .technique-details {
+            margin-top: 1rem;
+            position: relative;
+        }
+        
+        /* Breadcrumbs */
+        .breadcrumbs {
+            margin-bottom: 1.5rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .breadcrumbs ol {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        
+        .breadcrumbs li {
+            display: inline-flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        
+        .breadcrumbs li:not(:last-child)::after {
+            content: ">";
+            margin: 0 0.5rem;
+            color: #6c757d;
+        }
+        
+        .breadcrumbs a {
+            color: #2196f3;
+            text-decoration: none;
+        }
+        
+        .breadcrumbs a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Back Button */
+        .back-button {
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+        }
+        
+        /* Technique Detail Container */
+        .technique-detail-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+        }
+        
+        /* Technique Header */
+        .technique-detail-header {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 1rem;
+            position: relative;
+        }
+        
+        .technique-id-badge {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .technique-detail-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0 0 0.5rem 0;
+            color: #333;
+        }
+        
+        .technique-meta {
+            margin-top: 0.5rem;
+        }
+        
+        /* Badge styling */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge-primary {
+            background-color: #2196f3;
+            color: white;
+        }
+        
+        /* Technique Content */
+        .technique-detail-content {
+            line-height: 1.6;
+        }
+        
+        .technique-section {
+            margin-bottom: 2rem;
+        }
+        
+        .technique-section h4 {
+            font-size: 18px;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .placeholder-text {
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        /* Table styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        /* Status badges */
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-idea { background-color: #e3f2fd; color: #0d47a1; }
+        .status-draft { background-color: #e8f5e9; color: #1b5e20; }
+        .status-test { background-color: #fff3e0; color: #e65100; }
+        .status-production { background-color: #e8eaf6; color: #303f9f; }
+        .status-retired { background-color: #fafafa; color: #616161; }
+        
+        /* Empty state */
+        .empty-state {
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+            color: #6c757d;
+        }
+        
+        /* Responsive adjustments for detail page */
+        @media (max-width: 768px) {
+            .technique-detail-container {
+                padding: 1rem;
+            }
+            
+            .breadcrumbs {
+                font-size: 12px;
+            }
+            
+            .technique-detail-name {
+                font-size: 20px;
+            }
+        }
+        
+        /* Custom Tooltip Styles */
+        .technique-tooltip {
+            position: fixed;
+            z-index: 1000;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            padding: 10px;
+            max-width: 300px;
+            font-size: 13px;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+            top: 20px;
+            right: 20px;
+        }
+        
+        .tooltip-header {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .tooltip-id {
+            font-family: 'Courier New', monospace;
+            color: #2c3e50;
+        }
+        
+        .tooltip-name {
+            color: #333;
+        }
+        
+        .tooltip-description {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+        }
+    </style>
+</body>
+</html>

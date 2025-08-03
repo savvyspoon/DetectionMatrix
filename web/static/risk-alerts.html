@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Alerts - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="risk-alerts.html" class="active">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="{ 
+            alerts: [],
+            filteredAlerts: [],
+            riskObjects: {},
+            searchTerm: '',
+            sortBy: 'triggered_at',
+            sortOrder: 'desc',
+            
+            async fetchAlerts() {
+                const response = await fetch('/api/risk/alerts');
+                if (response.ok) {
+                    this.alerts = await response.json();
+                    await this.fetchRiskObjects();
+                    this.applyFilters();
+                }
+            },
+            
+            async fetchRiskObjects() {
+                const response = await fetch('/api/risk/objects');
+                if (response.ok) {
+                    const riskObjectsList = await response.json();
+                    this.riskObjects = {};
+                    riskObjectsList.forEach(ro => {
+                        this.riskObjects[ro.id] = ro;
+                    });
+                }
+            },
+            
+            applyFilters() {
+                this.filteredAlerts = this.alerts.filter(alert => {
+                    const entityInfo = this.getEntityInfo(alert.entity_id);
+                    const matchesSearch = this.searchTerm === '' || 
+                        entityInfo.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+                        alert.total_score.toString().includes(this.searchTerm);
+                    
+                    return matchesSearch;
+                });
+                
+                this.sortAlerts();
+            },
+            
+            sortAlerts() {
+                this.filteredAlerts.sort((a, b) => {
+                    let aVal, bVal;
+                    
+                    switch(this.sortBy) {
+                        case 'triggered_at':
+                            aVal = new Date(a.triggered_at);
+                            bVal = new Date(b.triggered_at);
+                            break;
+                        case 'total_score':
+                            aVal = a.total_score;
+                            bVal = b.total_score;
+                            break;
+                        case 'entity':
+                            aVal = this.getEntityInfo(a.entity_id);
+                            bVal = this.getEntityInfo(b.entity_id);
+                            break;
+                        default:
+                            return 0;
+                    }
+                    
+                    if (this.sortOrder === 'asc') {
+                        return aVal > bVal ? 1 : -1;
+                    } else {
+                        return aVal < bVal ? 1 : -1;
+                    }
+                });
+            },
+            
+            getEntityInfo(entityId) {
+                const riskObject = this.riskObjects[entityId];
+                return riskObject ? `${riskObject.entity_value} (${riskObject.entity_type})` : `Entity ${entityId}`;
+            },
+            
+            formatTimestamp(timestamp) {
+                return new Date(timestamp).toLocaleString();
+            },
+            
+            getRiskLevelClass(score) {
+                if (score >= 80) return 'risk-critical';
+                if (score >= 60) return 'risk-high';
+                if (score >= 40) return 'risk-medium';
+                return 'risk-low';
+            },
+            
+            getRiskLevelText(score) {
+                if (score >= 80) return 'Critical';
+                if (score >= 60) return 'High';
+                if (score >= 40) return 'Medium';
+                return 'Low';
+            }
+        }" x-init="fetchAlerts()">
+            <div class="card-header">
+                <h2>Risk Alerts</h2>
+                <div class="alert-stats">
+                    <span class="stat-item">
+                        <strong x-text="filteredAlerts.length"></strong> alerts
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Filters and Search -->
+            <div class="filters">
+                <div class="form-group">
+                    <label for="search">Search Alerts</label>
+                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search by entity or score...">
+                </div>
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label for="sort-by">Sort By</label>
+                        <select id="sort-by" x-model="sortBy" @change="applyFilters()">
+                            <option value="triggered_at">Triggered Date</option>
+                            <option value="total_score">Risk Score</option>
+                            <option value="entity">Entity</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sort-order">Order</label>
+                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()">
+                            <option value="desc">Descending</option>
+                            <option value="asc">Ascending</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Alerts List -->
+            <div class="alerts-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Entity</th>
+                            <th>Risk Score</th>
+                            <th>Risk Level</th>
+                            <th>Triggered At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="alert in filteredAlerts" :key="alert.id">
+                            <tr>
+                                <td x-text="alert.id"></td>
+                                <td x-text="getEntityInfo(alert.entity_id)"></td>
+                                <td x-text="alert.total_score"></td>
+                                <td>
+                                    <span x-text="getRiskLevelText(alert.total_score)" 
+                                          :class="'badge ' + getRiskLevelClass(alert.total_score)"></span>
+                                </td>
+                                <td x-text="formatTimestamp(alert.triggered_at)"></td>
+                                <td>
+                                    <a :href="`risk-alerts-detail.html?id=${alert.id}`" class="btn btn-secondary btn-sm">View</a>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="filteredAlerts.length === 0">
+                            <td colspan="6" class="text-center">No risk alerts found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-stats {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .stat-item {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .filters {
+            margin-bottom: 1.5rem;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .filter-row .form-group {
+            flex: 1;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .alerts-list table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .alerts-list th,
+        .alerts-list td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .alerts-list th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .risk-low {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .risk-medium {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .risk-high {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .risk-critical {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</body>
+</html>
