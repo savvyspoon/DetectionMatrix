@@ -220,6 +220,16 @@ func (e *Engine) GetRiskAlerts() ([]*models.RiskAlert, error) {
 	return e.repo.ListRiskAlerts()
 }
 
+// GetRiskAlertsByStatus returns risk alerts filtered by status
+func (e *Engine) GetRiskAlertsByStatus(status models.AlertStatus) ([]*models.RiskAlert, error) {
+	return e.repo.ListRiskAlertsByStatus(status)
+}
+
+// GetRiskAlertsPaginated returns paginated risk alerts with total count
+func (e *Engine) GetRiskAlertsPaginated(limit, offset int, status models.AlertStatus) ([]*models.RiskAlert, int, error) {
+	return e.repo.ListRiskAlertsPaginated(limit, offset, status)
+}
+
 // GetEventsForAlert returns events that contributed to a risk alert
 func (e *Engine) GetEventsForAlert(alertID int64) ([]*models.Event, error) {
 	return e.repo.GetEventsForAlert(alertID)

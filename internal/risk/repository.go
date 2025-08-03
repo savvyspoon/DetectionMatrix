@@ -605,11 +605,27 @@ func (r *Repository) ListEventsByEntity(entityID int64) ([]*models.Event, error)
 
 // ListRiskAlerts lists all risk alerts
 func (r *Repository) ListRiskAlerts() ([]*models.RiskAlert, error) {
-	query := `SELECT id, entity_id, triggered_at, total_score, status, notes, owner 
-              FROM risk_alerts 
-              ORDER BY triggered_at DESC`
+	return r.ListRiskAlertsByStatus("")
+}
+
+// ListRiskAlertsByStatus lists risk alerts filtered by status
+func (r *Repository) ListRiskAlertsByStatus(status models.AlertStatus) ([]*models.RiskAlert, error) {
+	var query string
+	var args []interface{}
 	
-	rows, err := r.db.Query(query)
+	if status != "" {
+		query = `SELECT id, entity_id, triggered_at, total_score, status, notes, owner 
+                 FROM risk_alerts 
+                 WHERE status = ?
+                 ORDER BY triggered_at DESC`
+		args = append(args, status)
+	} else {
+		query = `SELECT id, entity_id, triggered_at, total_score, status, notes, owner 
+                 FROM risk_alerts 
+                 ORDER BY triggered_at DESC`
+	}
+	
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying risk alerts: %w", err)
 	}
@@ -651,6 +667,88 @@ func (r *Repository) ListRiskAlerts() ([]*models.RiskAlert, error) {
 	}
 	
 	return alerts, nil
+}
+
+// ListRiskAlertsPaginated lists risk alerts with pagination support
+func (r *Repository) ListRiskAlertsPaginated(limit, offset int, status models.AlertStatus) ([]*models.RiskAlert, int, error) {
+	// Get total count first
+	var countQuery string
+	var countArgs []interface{}
+	
+	if status != "" {
+		countQuery = `SELECT COUNT(*) FROM risk_alerts WHERE status = ?`
+		countArgs = append(countArgs, status)
+	} else {
+		countQuery = `SELECT COUNT(*) FROM risk_alerts`
+	}
+	
+	var totalCount int
+	err := r.db.QueryRow(countQuery, countArgs...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error counting risk alerts: %w", err)
+	}
+	
+	// Get paginated alerts
+	var query string
+	var args []interface{}
+	
+	if status != "" {
+		query = `SELECT id, entity_id, triggered_at, total_score, status, notes, owner 
+                 FROM risk_alerts 
+                 WHERE status = ?
+                 ORDER BY triggered_at DESC
+                 LIMIT ? OFFSET ?`
+		args = append(args, status, limit, offset)
+	} else {
+		query = `SELECT id, entity_id, triggered_at, total_score, status, notes, owner 
+                 FROM risk_alerts 
+                 ORDER BY triggered_at DESC
+                 LIMIT ? OFFSET ?`
+		args = append(args, limit, offset)
+	}
+	
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error querying risk alerts: %w", err)
+	}
+	defer rows.Close()
+	
+	var alerts []*models.RiskAlert
+	
+	for rows.Next() {
+		var alert models.RiskAlert
+		var triggeredAt string
+		var notes, owner sql.NullString
+		
+		err := rows.Scan(
+			&alert.ID,
+			&alert.EntityID,
+			&triggeredAt,
+			&alert.TotalScore,
+			&alert.Status,
+			&notes,
+			&owner,
+		)
+		
+		if err != nil {
+			return nil, 0, fmt.Errorf("error scanning risk alert row: %w", err)
+		}
+		
+		// Handle nullable fields
+		if notes.Valid {
+			alert.Notes = notes.String
+		}
+		if owner.Valid {
+			alert.Owner = owner.String
+		}
+		
+		// Parse timestamp
+		alert.TriggeredAt, _ = time.Parse(time.RFC3339, triggeredAt)
+		
+		alerts = append(alerts, &alert)
+	}
+	
+	return alerts, totalCount, nil
 }
 
 // GetRiskAlert retrieves a risk alert by ID
@@ -747,12 +845,15 @@ func (r *Repository) GetEventsForAlert(alertID int64) ([]*models.Event, error) {
 	alert.TriggeredAt, _ = time.Parse(time.RFC3339, triggeredAt)
 	
 	// Get events for this entity before the alert was triggered
+	// Convert alert timestamp to UTC for proper comparison with event timestamps
+	alertTimeUTC := alert.TriggeredAt.UTC()
+	
 	query := `SELECT id, detection_id, entity_id, timestamp, raw_data, context, risk_points, is_false_positive 
               FROM events 
-              WHERE entity_id = ? AND timestamp <= ? AND is_false_positive = 0
+              WHERE entity_id = ? AND datetime(timestamp) <= datetime(?) AND is_false_positive = 0
               ORDER BY timestamp DESC`
 	
-	rows, err := r.db.Query(query, alert.EntityID, alert.TriggeredAt.Format(time.RFC3339))
+	rows, err := r.db.Query(query, alert.EntityID, alertTimeUTC.Format(time.RFC3339))
 	if err != nil {
 		return nil, fmt.Errorf("error querying events for alert: %w", err)
 	}

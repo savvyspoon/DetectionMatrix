@@ -35,15 +35,57 @@
             filteredAlerts: [],
             riskObjects: {},
             searchTerm: '',
+            statusFilter: '',
             sortBy: 'triggered_at',
             sortOrder: 'desc',
             
+            // Pagination state
+            currentPage: 1,
+            pageSize: 20,
+            totalCount: 0,
+            totalPages: 0,
+            isPaginated: false,
+            
             async fetchAlerts() {
-                const response = await fetch('/api/risk/alerts');
+                // Build URL with pagination and filters
+                let url = '/api/risk/alerts';
+                const params = new URLSearchParams();
+                
+                // Add pagination parameters
+                params.append('page', this.currentPage.toString());
+                params.append('limit', this.pageSize.toString());
+                
+                // Add status filter if set
+                if (this.statusFilter) {
+                    params.append('status', this.statusFilter);
+                }
+                
+                url += '?' + params.toString();
+                
+                const response = await fetch(url);
                 if (response.ok) {
-                    this.alerts = await response.json();
+                    const data = await response.json();
+                    
+                    // Check if response is paginated or legacy format
+                    if (data.alerts !== undefined) {
+                        // Paginated response
+                        this.alerts = data.alerts;
+                        this.totalCount = data.total_count;
+                        this.totalPages = data.total_pages;
+                        this.currentPage = data.page;
+                        this.pageSize = data.page_size;
+                        this.isPaginated = true;
+                        this.filteredAlerts = this.alerts; // No client-side filtering with pagination
+                    } else {
+                        // Legacy response (array of alerts)
+                        this.alerts = data;
+                        this.totalCount = data.length;
+                        this.totalPages = 1;
+                        this.isPaginated = false;
+                        this.applyFilters(); // Apply client-side filtering for legacy mode
+                    }
+                    
                     await this.fetchRiskObjects();
-                    this.applyFilters();
                 }
             },
             
@@ -63,7 +105,8 @@
                     const entityInfo = this.getEntityInfo(alert.entity_id);
                     const matchesSearch = this.searchTerm === '' || 
                         entityInfo.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                        alert.total_score.toString().includes(this.searchTerm);
+                        alert.total_score.toString().includes(this.searchTerm) ||
+                        alert.status.toLowerCase().includes(this.searchTerm.toLowerCase());
                     
                     return matchesSearch;
                 });
@@ -87,6 +130,10 @@
                         case 'entity':
                             aVal = this.getEntityInfo(a.entity_id);
                             bVal = this.getEntityInfo(b.entity_id);
+                            break;
+                        case 'status':
+                            aVal = a.status;
+                            bVal = b.status;
                             break;
                         default:
                             return 0;
@@ -121,33 +168,116 @@
                 if (score >= 60) return 'High';
                 if (score >= 40) return 'Medium';
                 return 'Low';
+            },
+            
+            getStatusClass(status) {
+                switch(status) {
+                    case 'New': return 'status-new';
+                    case 'Triage': return 'status-triage';
+                    case 'Investigation': return 'status-investigation';
+                    case 'On Hold': return 'status-on-hold';
+                    case 'Incident': return 'status-incident';
+                    case 'Closed': return 'status-closed';
+                    default: return 'status-unknown';
+                }
+            },
+            
+            // Pagination methods
+            async goToPage(page) {
+                if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+                    this.currentPage = page;
+                    await this.fetchAlerts();
+                }
+            },
+            
+            async previousPage() {
+                if (this.currentPage > 1) {
+                    await this.goToPage(this.currentPage - 1);
+                }
+            },
+            
+            async nextPage() {
+                if (this.currentPage < this.totalPages) {
+                    await this.goToPage(this.currentPage + 1);
+                }
+            },
+            
+            async changePageSize() {
+                this.currentPage = 1; // Reset to first page when changing page size
+                await this.fetchAlerts();
+            },
+            
+            getPageNumbers() {
+                const pages = [];
+                const maxVisiblePages = 5;
+                let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
+                let endPage = Math.min(this.totalPages, startPage + maxVisiblePages - 1);
+                
+                // Adjust start page if we're near the end
+                if (endPage - startPage + 1 < maxVisiblePages) {
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                    pages.push(i);
+                }
+                
+                return pages;
             }
         }" x-init="fetchAlerts()">
             <div class="card-header">
                 <h2>Risk Alerts</h2>
                 <div class="alert-stats">
-                    <span class="stat-item">
+                    <span class="stat-item" x-show="isPaginated">
+                        <strong x-text="totalCount"></strong> total alerts
+                    </span>
+                    <span class="stat-item" x-show="!isPaginated">
                         <strong x-text="filteredAlerts.length"></strong> alerts
+                    </span>
+                    <span class="stat-item" x-show="isPaginated && totalPages > 1">
+                        Page <strong x-text="currentPage"></strong> of <strong x-text="totalPages"></strong>
                     </span>
                 </div>
             </div>
             
             <!-- Filters and Search -->
             <div class="filters">
-                <div class="form-group">
+                <div class="form-group" x-show="!isPaginated">
                     <label for="search">Search Alerts</label>
-                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search by entity or score...">
+                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search by entity, score, or status...">
                 </div>
                 <div class="filter-row">
                     <div class="form-group">
+                        <label for="status-filter">Filter by Status</label>
+                        <select id="status-filter" x-model="statusFilter" @change="currentPage = 1; fetchAlerts()">
+                            <option value="">All Statuses</option>
+                            <option value="New">New</option>
+                            <option value="Triage">Triage</option>
+                            <option value="Investigation">Investigation</option>
+                            <option value="On Hold">On Hold</option>
+                            <option value="Incident">Incident</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                    </div>
+                    <div class="form-group" x-show="isPaginated">
+                        <label for="page-size">Page Size</label>
+                        <select id="page-size" x-model="pageSize" @change="changePageSize()">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div class="form-group" x-show="!isPaginated">
                         <label for="sort-by">Sort By</label>
                         <select id="sort-by" x-model="sortBy" @change="applyFilters()">
                             <option value="triggered_at">Triggered Date</option>
                             <option value="total_score">Risk Score</option>
                             <option value="entity">Entity</option>
+                            <option value="status">Status</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" x-show="!isPaginated">
                         <label for="sort-order">Order</label>
                         <select id="sort-order" x-model="sortOrder" @change="applyFilters()">
                             <option value="desc">Descending</option>
@@ -166,6 +296,7 @@
                             <th>Entity</th>
                             <th>Risk Score</th>
                             <th>Risk Level</th>
+                            <th>Status</th>
                             <th>Triggered At</th>
                             <th>Actions</th>
                         </tr>
@@ -180,6 +311,10 @@
                                     <span x-text="getRiskLevelText(alert.total_score)" 
                                           :class="'badge ' + getRiskLevelClass(alert.total_score)"></span>
                                 </td>
+                                <td>
+                                    <span x-text="alert.status" 
+                                          :class="'badge ' + getStatusClass(alert.status)"></span>
+                                </td>
                                 <td x-text="formatTimestamp(alert.triggered_at)"></td>
                                 <td>
                                     <a :href="`risk-alerts-detail.html?id=${alert.id}`" class="btn btn-secondary btn-sm">View</a>
@@ -187,10 +322,28 @@
                             </tr>
                         </template>
                         <tr x-show="filteredAlerts.length === 0">
-                            <td colspan="6" class="text-center">No risk alerts found</td>
+                            <td colspan="7" class="text-center">No risk alerts found</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+            
+            <!-- Pagination Controls -->
+            <div class="pagination-controls" x-show="isPaginated && totalPages > 1">
+                <div class="pagination-info">
+                    <span x-text="`Showing ${Math.min((currentPage - 1) * pageSize + 1, totalCount)} to ${Math.min(currentPage * pageSize, totalCount)} of ${totalCount} alerts`"></span>
+                </div>
+                <div class="pagination-buttons">
+                    <button @click="previousPage()" :disabled="currentPage === 1" class="btn btn-secondary">← Previous</button>
+                    
+                    <template x-for="page in getPageNumbers()" :key="page">
+                        <button @click="goToPage(page)" 
+                                :class="{ 'btn': true, 'btn-primary': page === currentPage, 'btn-secondary': page !== currentPage }"
+                                x-text="page"></button>
+                    </template>
+                    
+                    <button @click="nextPage()" :disabled="currentPage === totalPages" class="btn btn-secondary">Next →</button>
+                </div>
             </div>
         </div>
     </main>
@@ -286,6 +439,84 @@
         .risk-critical {
             background-color: #d1ecf1;
             color: #0c5460;
+        }
+        
+        .status-new {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .status-triage {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+        
+        .status-investigation {
+            background-color: #fce4ec;
+            color: #ad1457;
+        }
+        
+        .status-on-hold {
+            background-color: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .status-incident {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        .status-closed {
+            background-color: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .status-unknown {
+            background-color: #f5f5f5;
+            color: #616161;
+        }
+        
+        /* Pagination Styles */
+        .pagination-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .pagination-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .pagination-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .pagination-buttons .btn {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
+            min-width: 40px;
+        }
+        
+        .pagination-buttons .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        @media (max-width: 768px) {
+            .pagination-controls {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .pagination-buttons {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
         }
     </style>
 </body>

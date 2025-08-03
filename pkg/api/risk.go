@@ -288,18 +288,89 @@ func (h *RiskHandler) MarkEventAsFalsePositive(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// RiskAlertsResponse represents the paginated response for risk alerts
+type RiskAlertsResponse struct {
+	Alerts     []*models.RiskAlert `json:"alerts"`
+	TotalCount int                 `json:"total_count"`
+	Page       int                 `json:"page"`
+	PageSize   int                 `json:"page_size"`
+	TotalPages int                 `json:"total_pages"`
+}
+
 // ListRiskAlerts handles GET /api/risk/alerts
 func (h *RiskHandler) ListRiskAlerts(w http.ResponseWriter, r *http.Request) {
-	// Get risk alerts from repository
-	alerts, err := h.repo.ListRiskAlerts()
-	if err != nil {
-		http.Error(w, "Error retrieving risk alerts", http.StatusInternalServerError)
-		return
+	// Parse query parameters
+	statusFilter := r.URL.Query().Get("status")
+	limitStr := r.URL.Query().Get("limit")
+	pageStr := r.URL.Query().Get("page")
+
+	// Default pagination values
+	limit := 50
+	page := 1
+
+	// Parse limit parameter
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
+			limit = parsedLimit
+		} else if parsedLimit > 100 {
+			limit = 100 // Cap at 100
+		}
 	}
 
-	// Return risk alerts as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(alerts)
+	// Parse page parameter
+	if pageStr != "" {
+		if parsedPage, err := strconv.Atoi(pageStr); err == nil && parsedPage > 0 {
+			page = parsedPage
+		}
+	}
+
+	// Calculate offset
+	offset := (page - 1) * limit
+
+	// Check if pagination is requested
+	if limitStr != "" || pageStr != "" {
+		// Use paginated method
+		alerts, totalCount, err := h.engine.GetRiskAlertsPaginated(limit, offset, models.AlertStatus(statusFilter))
+		if err != nil {
+			http.Error(w, "Error retrieving risk alerts", http.StatusInternalServerError)
+			return
+		}
+
+		// Calculate total pages
+		totalPages := (totalCount + limit - 1) / limit
+
+		response := RiskAlertsResponse{
+			Alerts:     alerts,
+			TotalCount: totalCount,
+			Page:       page,
+			PageSize:   limit,
+			TotalPages: totalPages,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	} else {
+		// Legacy non-paginated response for backward compatibility
+		var alerts []*models.RiskAlert
+		var err error
+
+		if statusFilter != "" {
+			// List alerts filtered by status
+			alerts, err = h.engine.GetRiskAlertsByStatus(models.AlertStatus(statusFilter))
+		} else {
+			// List all risk alerts
+			alerts, err = h.engine.GetRiskAlerts()
+		}
+
+		if err != nil {
+			http.Error(w, "Error retrieving risk alerts", http.StatusInternalServerError)
+			return
+		}
+
+		// Return risk alerts as JSON
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(alerts)
+	}
 }
 
 // GetRiskAlert handles GET /api/risk/alerts/{id}

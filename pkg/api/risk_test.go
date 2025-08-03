@@ -619,6 +619,132 @@ func TestRiskHandler_ListRiskAlerts(t *testing.T) {
 	}
 }
 
+func TestRiskHandler_ListRiskAlertsByStatus(t *testing.T) {
+	handler, db := setupRiskTestHandler(t)
+	defer db.Close()
+
+	// Create test risk objects and alerts with different statuses
+	now := time.Now()
+	
+	// Create risk object
+	riskObjectQuery := `INSERT INTO risk_objects (entity_type, entity_value, current_score, last_seen) VALUES (?, ?, ?, ?)`
+	result, err := db.Exec(riskObjectQuery, models.EntityTypeUser, "test-user-alerts", 75, now.Format(time.RFC3339))
+	if err != nil {
+		t.Fatalf("Failed to create test risk object: %v", err)
+	}
+	riskObjectID, _ := result.LastInsertId()
+
+	// Create risk alerts with different statuses
+	alertQuery := `INSERT INTO risk_alerts (entity_id, triggered_at, total_score, status, notes, owner) VALUES (?, ?, ?, ?, ?, ?)`
+	
+	// Alert 1: New status
+	_, err = db.Exec(alertQuery, riskObjectID, now.Format(time.RFC3339), 75, models.AlertStatusNew, "Test alert 1", "analyst1")
+	if err != nil {
+		t.Fatalf("Failed to create test alert 1: %v", err)
+	}
+
+	// Alert 2: Triage status
+	_, err = db.Exec(alertQuery, riskObjectID, now.Add(time.Hour).Format(time.RFC3339), 80, models.AlertStatusTriage, "Test alert 2", "analyst2")
+	if err != nil {
+		t.Fatalf("Failed to create test alert 2: %v", err)
+	}
+
+	// Alert 3: Investigation status
+	_, err = db.Exec(alertQuery, riskObjectID, now.Add(2*time.Hour).Format(time.RFC3339), 85, models.AlertStatusInvestigation, "Test alert 3", "analyst1")
+	if err != nil {
+		t.Fatalf("Failed to create test alert 3: %v", err)
+	}
+
+	// Alert 4: Closed status
+	_, err = db.Exec(alertQuery, riskObjectID, now.Add(3*time.Hour).Format(time.RFC3339), 90, models.AlertStatusClosed, "Test alert 4", "analyst2")
+	if err != nil {
+		t.Fatalf("Failed to create test alert 4: %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		statusFilter   string
+		expectedCount  int
+		expectedStatus int
+	}{
+		{
+			name:           "No status filter - should return all alerts",
+			statusFilter:   "",
+			expectedCount:  4,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Filter by New status",
+			statusFilter:   string(models.AlertStatusNew),
+			expectedCount:  1,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Filter by Triage status",
+			statusFilter:   string(models.AlertStatusTriage),
+			expectedCount:  1,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Filter by Investigation status",
+			statusFilter:   string(models.AlertStatusInvestigation),
+			expectedCount:  1,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Filter by Closed status",
+			statusFilter:   string(models.AlertStatusClosed),
+			expectedCount:  1,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Filter by non-existent status",
+			statusFilter:   "NonExistent",
+			expectedCount:  0,
+			expectedStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := "/api/risk/alerts"
+			if tt.statusFilter != "" {
+				url += "?status=" + tt.statusFilter
+			}
+
+			req := httptest.NewRequest("GET", url, nil)
+			w := httptest.NewRecorder()
+
+			handler.ListRiskAlerts(w, req)
+
+			if w.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
+			}
+
+			if w.Code == http.StatusOK {
+				var alerts []*models.RiskAlert
+				err := json.NewDecoder(w.Body).Decode(&alerts)
+				if err != nil {
+					t.Errorf("Failed to decode response: %v", err)
+				}
+
+				if len(alerts) != tt.expectedCount {
+					t.Errorf("Expected %d alerts, got %d", tt.expectedCount, len(alerts))
+				}
+
+				// Verify that all returned alerts have the correct status when filtering
+				if tt.statusFilter != "" && len(alerts) > 0 {
+					for _, alert := range alerts {
+						if string(alert.Status) != tt.statusFilter {
+							t.Errorf("Expected alert status %s, got %s", tt.statusFilter, alert.Status)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestRiskHandler_GetEventsForAlert(t *testing.T) {
 	handler, db := setupRiskTestHandler(t)
 	defer db.Close()

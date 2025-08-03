@@ -47,6 +47,8 @@ type Detection struct {
 	Owner                      string          `json:"owner,omitempty"`
 	RiskObject                 RiskObjectType  `json:"risk_object,omitempty"`
 	TestingDescription         string          `json:"testing_description,omitempty"`
+	EventCountLast30Days       int             `json:"event_count_last_30_days"`
+	FalsePositivesLast30Days   int             `json:"false_positives_last_30_days"`
 	CreatedAt                  time.Time       `json:"created_at"`
 	UpdatedAt                  time.Time       `json:"updated_at"`
 	

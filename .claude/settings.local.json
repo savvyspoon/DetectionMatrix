@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(go test:*)",
+      "Bash(sqlite3:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(powershell:*)",
+      "Bash(set CGO_ENABLED=1)",
+      "Bash(go run:*)"
+    ],
+    "deny": []
+  }
+}

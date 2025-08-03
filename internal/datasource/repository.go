@@ -102,6 +102,11 @@ func (r *Repository) ListDataSources() ([]*models.DataSource, error) {
 
 // CreateDataSource creates a new data source
 func (r *Repository) CreateDataSource(dataSource *models.DataSource) error {
+	// Validate required fields
+	if dataSource.Name == "" {
+		return fmt.Errorf("data source name cannot be empty")
+	}
+	
 	query := `INSERT INTO data_sources (name, description, log_format) VALUES (?, ?, ?)`
 	
 	result, err := r.db.Exec(

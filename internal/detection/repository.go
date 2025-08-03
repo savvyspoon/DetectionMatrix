@@ -22,7 +22,7 @@ func NewRepository(db *database.DB) *Repository {
 
 // GetDetection retrieves a detection by ID
 func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
-	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, created_at, updated_at 
+	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at 
               FROM detections WHERE id = ?`
 	
 	row := r.db.QueryRow(query, id)
@@ -44,6 +44,8 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 		&owner,
 		&riskObject,
 		&testingDescription,
+		&detection.EventCountLast30Days,
+		&detection.FalsePositivesLast30Days,
 		&createdAt,
 		&updatedAt,
 	)
@@ -91,7 +93,7 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 
 // ListDetections retrieves all detections
 func (r *Repository) ListDetections() ([]*models.Detection, error) {
-	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, created_at, updated_at 
+	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at 
               FROM detections ORDER BY name`
 	
 	rows, err := r.db.Query(query)
@@ -119,6 +121,8 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 			&owner,
 			&riskObject,
 			&testingDescription,
+			&detection.EventCountLast30Days,
+			&detection.FalsePositivesLast30Days,
 			&createdAt,
 			&updatedAt,
 		)
@@ -168,7 +172,7 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 
 // ListDetectionsByStatus retrieves detections by status
 func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*models.Detection, error) {
-	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, created_at, updated_at 
+	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at 
               FROM detections WHERE status = ? ORDER BY name`
 	
 	rows, err := r.db.Query(query, status)
@@ -196,6 +200,8 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 			&owner,
 			&riskObject,
 			&testingDescription,
+			&detection.EventCountLast30Days,
+			&detection.FalsePositivesLast30Days,
 			&createdAt,
 			&updatedAt,
 		)
@@ -245,8 +251,8 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 
 // CreateDetection creates a new detection
 func (r *Repository) CreateDetection(detection *models.Detection) error {
-	query := `INSERT INTO detections (name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, created_at, updated_at) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO detections (name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	
 	now := time.Now()
 	detection.CreatedAt = now
@@ -264,6 +270,8 @@ func (r *Repository) CreateDetection(detection *models.Detection) error {
 		detection.Owner,
 		detection.RiskObject,
 		detection.TestingDescription,
+		detection.EventCountLast30Days,
+		detection.FalsePositivesLast30Days,
 		detection.CreatedAt.Format(time.RFC3339),
 		detection.UpdatedAt.Format(time.RFC3339),
 	)
@@ -284,7 +292,7 @@ func (r *Repository) CreateDetection(detection *models.Detection) error {
 // UpdateDetection updates an existing detection
 func (r *Repository) UpdateDetection(detection *models.Detection) error {
 	query := `UPDATE detections 
-              SET name = ?, description = ?, query = ?, status = ?, severity = ?, risk_points = ?, playbook_link = ?, owner = ?, risk_object = ?, testing_description = ?, updated_at = ? 
+              SET name = ?, description = ?, query = ?, status = ?, severity = ?, risk_points = ?, playbook_link = ?, owner = ?, risk_object = ?, testing_description = ?, event_count_last_30_days = ?, false_positives_last_30_days = ?, updated_at = ? 
               WHERE id = ?`
 	
 	detection.UpdatedAt = time.Now()
@@ -301,6 +309,8 @@ func (r *Repository) UpdateDetection(detection *models.Detection) error {
 		detection.Owner,
 		detection.RiskObject,
 		detection.TestingDescription,
+		detection.EventCountLast30Days,
+		detection.FalsePositivesLast30Days,
 		detection.UpdatedAt.Format(time.RFC3339),
 		detection.ID,
 	)
