@@ -185,8 +185,12 @@ func TestRepository_ListDetections(t *testing.T) {
 		Status:      models.StatusProduction,
 		Severity:    models.SeverityHigh,
 		RiskPoints:  75,
+		RiskObject:  models.RiskObjectUser, // Add required field
 	}
-	repo.CreateDetection(detection2)
+	err := repo.CreateDetection(detection2)
+	if err != nil {
+		t.Fatalf("Failed to create second detection: %v", err)
+	}
 
 	detections, err := repo.ListDetections()
 	if err != nil {
@@ -234,8 +238,12 @@ func TestRepository_ListDetectionsByStatus(t *testing.T) {
 		Status:      models.StatusDraft,
 		Severity:    models.SeverityMedium,
 		RiskPoints:  50,
+		RiskObject:  models.RiskObjectHost,
 	}
-	repo.CreateDetection(detection1)
+	err := repo.CreateDetection(detection1)
+	if err != nil {
+		t.Fatalf("Failed to create draft detection: %v", err)
+	}
 
 	detection2 := &models.Detection{
 		Name:        "Production Detection",
@@ -243,8 +251,12 @@ func TestRepository_ListDetectionsByStatus(t *testing.T) {
 		Status:      models.StatusProduction,
 		Severity:    models.SeverityHigh,
 		RiskPoints:  75,
+		RiskObject:  models.RiskObjectUser,
 	}
-	repo.CreateDetection(detection2)
+	err = repo.CreateDetection(detection2)
+	if err != nil {
+		t.Fatalf("Failed to create production detection: %v", err)
+	}
 
 	// Test filtering by draft status
 	draftDetections, err := repo.ListDetectionsByStatus(models.StatusDraft)
@@ -284,7 +296,7 @@ func TestRepository_UpdateDetection(t *testing.T) {
 	originalUpdatedAt := testDetection.UpdatedAt
 
 	// Wait a moment to ensure timestamp difference
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 
 	// Update detection
 	testDetection.Name = "Updated Detection"
@@ -317,9 +329,9 @@ func TestRepository_UpdateDetection(t *testing.T) {
 		t.Errorf("Expected owner 'updated-owner', got %s", updatedDetection.Owner)
 	}
 
-	// Verify UpdatedAt was changed
-	if !updatedDetection.UpdatedAt.After(originalUpdatedAt) {
-		t.Error("Expected UpdatedAt to be updated")
+	// Verify UpdatedAt was changed (allow for some precision loss due to RFC3339 formatting)
+	if updatedDetection.UpdatedAt.Unix() <= originalUpdatedAt.Unix() {
+		t.Errorf("Expected UpdatedAt to be updated: original=%v, updated=%v", originalUpdatedAt, updatedDetection.UpdatedAt)
 	}
 }
 
@@ -381,8 +393,12 @@ func TestRepository_GetDetectionCountByStatus(t *testing.T) {
 		Status:      models.StatusDraft,
 		Severity:    models.SeverityMedium,
 		RiskPoints:  50,
+		RiskObject:  models.RiskObjectHost,
 	}
-	repo.CreateDetection(detection1)
+	err := repo.CreateDetection(detection1)
+	if err != nil {
+		t.Fatalf("Failed to create draft detection 1: %v", err)
+	}
 
 	detection2 := &models.Detection{
 		Name:        "Draft Detection 2",
@@ -390,8 +406,12 @@ func TestRepository_GetDetectionCountByStatus(t *testing.T) {
 		Status:      models.StatusDraft,
 		Severity:    models.SeverityMedium,
 		RiskPoints:  50,
+		RiskObject:  models.RiskObjectUser,
 	}
-	repo.CreateDetection(detection2)
+	err = repo.CreateDetection(detection2)
+	if err != nil {
+		t.Fatalf("Failed to create draft detection 2: %v", err)
+	}
 
 	detection3 := &models.Detection{
 		Name:        "Production Detection",
@@ -399,8 +419,12 @@ func TestRepository_GetDetectionCountByStatus(t *testing.T) {
 		Status:      models.StatusProduction,
 		Severity:    models.SeverityHigh,
 		RiskPoints:  75,
+		RiskObject:  models.RiskObjectIP,
 	}
-	repo.CreateDetection(detection3)
+	err = repo.CreateDetection(detection3)
+	if err != nil {
+		t.Fatalf("Failed to create production detection: %v", err)
+	}
 
 	counts, err := repo.GetDetectionCountByStatus()
 	if err != nil {

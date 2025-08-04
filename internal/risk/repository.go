@@ -364,7 +364,8 @@ func (r *Repository) ListRiskObjects() ([]*models.RiskObject, error) {
 	}
 	defer rows.Close()
 	
-	var objects []*models.RiskObject
+	// Initialize empty slice to avoid nil
+	objects := make([]*models.RiskObject, 0)
 	
 	for rows.Next() {
 		var obj models.RiskObject
@@ -404,7 +405,8 @@ func (r *Repository) ListHighRiskObjects(threshold int) ([]*models.RiskObject, e
 	}
 	defer rows.Close()
 	
-	var objects []*models.RiskObject
+	// Initialize empty slice to avoid nil
+	objects := make([]*models.RiskObject, 0)
 	
 	for rows.Next() {
 		var obj models.RiskObject
@@ -655,7 +657,8 @@ func (r *Repository) ListRiskAlertsByStatus(status models.AlertStatus) ([]*model
 	}
 	defer rows.Close()
 	
-	var alerts []*models.RiskAlert
+	// Initialize empty slice to avoid nil
+	alerts := make([]*models.RiskAlert, 0)
 	
 	for rows.Next() {
 		var alert models.RiskAlert
@@ -737,7 +740,8 @@ func (r *Repository) ListRiskAlertsPaginated(limit, offset int, status models.Al
 	}
 	defer rows.Close()
 	
-	var alerts []*models.RiskAlert
+	// Initialize empty slice to avoid nil
+	alerts := make([]*models.RiskAlert, 0)
 	
 	for rows.Next() {
 		var alert models.RiskAlert

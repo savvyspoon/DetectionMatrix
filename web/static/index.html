@@ -7,10 +7,10 @@
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/dashboard.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -265,11 +265,11 @@
                 <h3>MITRE Coverage</h3>
                 <div class="stat">
                     <span>Techniques Covered</span>
-                    <span class="stat-value" x-text="stats.techniquesCovered + ' / ' + stats.totalTechniques">0 / 0</span>
+                    <span class="stat-value" x-text="stats.techniquesCovered + ' / ' + stats.totalTechniques + ' (' + getCoveragePercentage() + '%)'">0 / 0 (0%)</span>
                 </div>
                 <div class="stat">
                     <span>Tactics Covered</span>
-                    <span class="stat-value" x-text="stats.tacticsCovered + ' / ' + stats.totalTactics">0 / 0</span>
+                    <span class="stat-value" x-text="stats.tacticsCovered + ' / ' + stats.totalTactics + ' (' + getTacticCoveragePercentage() + '%)'">0 / 0 (0%)</span>
                 </div>
                 <div class="chart-container">
                     <canvas id="mitreChart"></canvas>

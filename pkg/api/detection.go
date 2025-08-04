@@ -186,7 +186,7 @@ func (h *DetectionHandler) GetFalsePositiveRate(w http.ResponseWriter, r *http.R
 
 	// Return rate as JSON
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]float64{"rate": rate})
+	json.NewEncoder(w).Encode(map[string]float64{"false_positive_rate": rate})
 }
 
 // GetEventCountLast30Days handles GET /api/detections/{id}/events/count/30days
@@ -256,8 +256,9 @@ func (h *DetectionHandler) AddMitreTechnique(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
+	// Return success message
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "MITRE technique added successfully"})
 }
 
 // RemoveMitreTechnique handles DELETE /api/detections/{id}/mitre/{technique_id}
@@ -283,8 +284,9 @@ func (h *DetectionHandler) RemoveMitreTechnique(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
+	// Return success message
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "MITRE technique removed successfully"})
 }
 
 // AddDataSource handles POST /api/detections/{id}/datasource/{datasource_id}
@@ -311,8 +313,9 @@ func (h *DetectionHandler) AddDataSource(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
+	// Return success message
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Data source added successfully"})
 }
 
 // RemoveDataSource handles DELETE /api/detections/{id}/datasource/{datasource_id}
@@ -339,6 +342,7 @@ func (h *DetectionHandler) RemoveDataSource(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
+	// Return success message
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Data source removed successfully"})
 }

@@ -199,7 +199,8 @@ func (r *Repository) GetDetectionsByDataSource(dataSourceID int64) ([]*models.De
 	}
 	defer rows.Close()
 	
-	var detections []*models.Detection
+	// Initialize empty slice to avoid nil
+	detections := make([]*models.Detection, 0)
 	
 	for rows.Next() {
 		var detection models.Detection
@@ -270,7 +271,8 @@ func (r *Repository) GetMitreTechniquesByDataSource(dataSourceID int64) ([]*mode
 	}
 	defer rows.Close()
 	
-	var techniques []*models.MitreTechnique
+	// Initialize empty slice to avoid nil
+	techniques := make([]*models.MitreTechnique, 0)
 	
 	for rows.Next() {
 		var technique models.MitreTechnique

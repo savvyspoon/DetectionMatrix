@@ -131,8 +131,12 @@ func TestDetectionHandler_ListDetections(t *testing.T) {
 		Status:      models.StatusProduction,
 		Severity:    models.SeverityHigh,
 		RiskPoints:  75,
+		RiskObject:  models.RiskObjectUser,
 	}
-	repo.CreateDetection(detection2)
+	err := repo.CreateDetection(detection2)
+	if err != nil {
+		t.Fatalf("Failed to create second detection: %v", err)
+	}
 
 	tests := []struct {
 		name           string
@@ -207,6 +211,7 @@ func TestDetectionHandler_CreateDetection(t *testing.T) {
 				Status:      models.StatusIdea,
 				Severity:    models.SeverityLow,
 				RiskPoints:  25,
+				RiskObject:  models.RiskObjectHost,
 			},
 			expectedStatus: http.StatusCreated,
 			expectError:    false,
@@ -302,6 +307,7 @@ func TestDetectionHandler_UpdateDetection(t *testing.T) {
 				Severity:    models.SeverityHigh,
 				RiskPoints:  75,
 				Owner:       "updated-owner",
+				RiskObject:  models.RiskObjectUser,
 			},
 			expectedStatus: http.StatusOK,
 			expectError:    false,
@@ -431,8 +437,13 @@ func TestDetectionHandler_GetDetectionCountByStatus(t *testing.T) {
 		Status:      models.StatusDraft,
 		Severity:    models.SeverityMedium,
 		RiskPoints:  50,
+		RiskObject:  models.RiskObjectHost,
 	}
-	repo.CreateDetection(detection1)
+	var err error
+	err = repo.CreateDetection(detection1)
+	if err != nil {
+		t.Fatalf("Failed to create draft detection: %v", err)
+	}
 
 	detection2 := &models.Detection{
 		Name:        "Production Detection",
@@ -440,8 +451,12 @@ func TestDetectionHandler_GetDetectionCountByStatus(t *testing.T) {
 		Status:      models.StatusProduction,
 		Severity:    models.SeverityHigh,
 		RiskPoints:  75,
+		RiskObject:  models.RiskObjectUser,
 	}
-	repo.CreateDetection(detection2)
+	err = repo.CreateDetection(detection2)
+	if err != nil {
+		t.Fatalf("Failed to create production detection: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/api/detections/count/status", nil)
 	w := httptest.NewRecorder()
@@ -453,7 +468,7 @@ func TestDetectionHandler_GetDetectionCountByStatus(t *testing.T) {
 	}
 
 	var response map[models.DetectionStatus]int
-	err := json.NewDecoder(w.Body).Decode(&response)
+	err = json.NewDecoder(w.Body).Decode(&response)
 	if err != nil {
 		t.Errorf("Failed to decode response: %v", err)
 	}

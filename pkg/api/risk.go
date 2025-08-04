@@ -73,8 +73,10 @@ func (h *RiskHandler) ProcessEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
+	// Return success with count
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]int{"processed": len(events)})
 }
 
 // GetRiskObject handles GET /api/risk/objects/{id}
@@ -284,8 +286,9 @@ func (h *RiskHandler) MarkEventAsFalsePositive(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
+	// Return success message
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Event marked as false positive successfully"})
 }
 
 // UnmarkEventAsFalsePositive handles DELETE /api/events/{id}/false-positive
@@ -476,8 +479,9 @@ func (h *RiskHandler) DecayRiskScores(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success
-	w.WriteHeader(http.StatusNoContent)
+	// Return success message
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Risk scores decayed successfully"})
 }
 
 // GetHighRiskEntities handles GET /api/risk/high

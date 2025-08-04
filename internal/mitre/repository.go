@@ -403,7 +403,8 @@ func (r *Repository) GetDetectionsByTechnique(techniqueID string) ([]*models.Det
 	}
 	defer rows.Close()
 	
-	var detections []*models.Detection
+	// Initialize empty slice to avoid nil
+	detections := make([]*models.Detection, 0)
 	
 	for rows.Next() {
 		var detection models.Detection

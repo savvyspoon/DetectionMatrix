@@ -442,6 +442,9 @@ func (r *Repository) GetFalsePositivesLast30Days(detectionID int64) (int, error)
 
 // loadMitreTechniques loads MITRE techniques for a detection
 func (r *Repository) loadMitreTechniques(detection *models.Detection) error {
+	// Initialize empty slice to avoid nil
+	detection.MitreTechniques = []models.MitreTechnique{}
+	
 	query := `SELECT mt.id, mt.name, mt.description, mt.tactic, mt.tactics, mt.domain, mt.last_modified, mt.detection, mt.platforms, mt.data_sources, mt.is_sub_technique, mt.sub_technique_of
               FROM mitre_techniques mt
               JOIN detection_mitre_map dmm ON mt.id = dmm.mitre_id
@@ -457,7 +460,7 @@ func (r *Repository) loadMitreTechniques(detection *models.Detection) error {
 	
 	for rows.Next() {
 		var technique models.MitreTechnique
-		var tactics, platforms, dataSources, detectionField, lastModified, subTechniqueOf sql.NullString
+		var tactics, platforms, dataSources, detectionField, lastModified, subTechniqueOf, domain sql.NullString
 		
 		err := rows.Scan(
 			&technique.ID,
@@ -465,7 +468,7 @@ func (r *Repository) loadMitreTechniques(detection *models.Detection) error {
 			&technique.Description,
 			&technique.Tactic,
 			&tactics,
-			&technique.Domain,
+			&domain,
 			&lastModified,
 			&detectionField,
 			&platforms,
@@ -479,6 +482,9 @@ func (r *Repository) loadMitreTechniques(detection *models.Detection) error {
 		}
 		
 		// Handle nullable fields
+		if domain.Valid {
+			technique.Domain = domain.String
+		}
 		if tactics.Valid {
 			json.Unmarshal([]byte(tactics.String), &technique.Tactics)
 		}
@@ -501,12 +507,17 @@ func (r *Repository) loadMitreTechniques(detection *models.Detection) error {
 		techniques = append(techniques, technique)
 	}
 	
-	detection.MitreTechniques = techniques
+	if len(techniques) > 0 {
+		detection.MitreTechniques = techniques
+	}
 	return nil
 }
 
 // loadDataSources loads data sources for a detection
 func (r *Repository) loadDataSources(detection *models.Detection) error {
+	// Initialize empty slice to avoid nil
+	detection.DataSources = []models.DataSource{}
+	
 	query := `SELECT ds.id, ds.name, ds.description, ds.log_format
               FROM data_sources ds
               JOIN detection_datasource dd ON ds.id = dd.datasource_id
@@ -546,6 +557,8 @@ func (r *Repository) loadDataSources(detection *models.Detection) error {
 		dataSources = append(dataSources, dataSource)
 	}
 	
-	detection.DataSources = dataSources
+	if len(dataSources) > 0 {
+		detection.DataSources = dataSources
+	}
 	return nil
 }

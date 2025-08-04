@@ -5,7 +5,7 @@ class DashboardAPI {
             const response = await fetch('/api/detections/count');
             if (response.ok) {
                 const data = await response.json();
-                return data.count;
+                return data.count || 0;
             }
         } catch (error) {
             console.error('Error fetching detection count:', error);
@@ -17,12 +17,13 @@ class DashboardAPI {
         try {
             const response = await fetch('/api/detections/count/status');
             if (response.ok) {
-                return await response.json();
+                const data = await response.json();
+                return data;
             }
         } catch (error) {
             console.error('Error fetching detection count by status:', error);
         }
-        return [];
+        return {};
     }
 
     static async fetchMitreCoverageSummary() {
@@ -64,13 +65,51 @@ class DashboardAPI {
 
     static async fetchActiveAlerts() {
         try {
-            const response = await fetch('/api/risk/alerts?status=open');
+            const response = await fetch('/api/risk/alerts');
             if (response.ok) {
                 const data = await response.json();
-                return data ? data.length : 0;
+                // Count alerts that are not "Closed"
+                return data ? data.filter(alert => alert.status !== 'Closed').length : 0;
             }
         } catch (error) {
             console.error('Error fetching active alerts:', error);
+        }
+        return 0;
+    }
+
+    static async fetchEventsToday() {
+        try {
+            const response = await fetch('/api/events');
+            if (response.ok) {
+                const data = await response.json();
+                const today = new Date().toISOString().split('T')[0];
+                
+                if (data.events) {
+                    return data.events.filter(event => 
+                        event.timestamp.startsWith(today)
+                    ).length;
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching events today:', error);
+        }
+        return 0;
+    }
+
+    static async fetchFalsePositives() {
+        try {
+            const response = await fetch('/api/events');
+            if (response.ok) {
+                const data = await response.json();
+                
+                if (data.events) {
+                    return data.events.filter(event => 
+                        event.is_false_positive === true
+                    ).length;
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching false positives:', error);
         }
         return 0;
     }
@@ -78,7 +117,7 @@ class DashboardAPI {
 
 class DashboardChart {
     static renderCoverageChart(mitreData) {
-        const ctx = document.getElementById('coverageChart');
+        const ctx = document.getElementById('mitreChart');
         if (!ctx || !mitreData) return null;
 
         const labels = Object.keys(mitreData);
@@ -137,7 +176,7 @@ class DashboardChart {
 }
 
 // Alpine.js dashboard data function
-function dashboardData() {
+window.dashboardData = function dashboardData() {
     return {
         lastUpdated: new Date(),
         stats: {
@@ -158,10 +197,13 @@ function dashboardData() {
         mitreData: {},
         chart: null,
 
-        async init() {
-            this.$nextTick(async () => {
-                await this.loadAllData();
-            });
+        init() {
+            // Load data immediately and also use $nextTick for DOM readiness
+            this.loadAllData().catch(err => console.error('Init load failed:', err));
+        },
+
+        async refreshData() {
+            await this.loadAllData();
         },
 
         async loadAllData() {
@@ -177,11 +219,13 @@ function dashboardData() {
                 this.updateCoverageSummary(coverageSummary);
 
                 this.mitreData = await DashboardAPI.fetchMitreCoverageByTactic();
-                this.chart = DashboardChart.renderCoverageChart(this.mitreData);
+                this.renderChart();
 
                 // Load risk data
                 this.stats.highRiskEntities = await DashboardAPI.fetchHighRiskEntities();
                 this.stats.activeAlerts = await DashboardAPI.fetchActiveAlerts();
+                this.stats.eventsToday = await DashboardAPI.fetchEventsToday();
+                this.stats.falsePositives = await DashboardAPI.fetchFalsePositives();
 
                 this.lastUpdated = new Date();
             } catch (error) {
@@ -190,32 +234,22 @@ function dashboardData() {
         },
 
         updateStatusCounts(statusData) {
-            if (Array.isArray(statusData)) {
-                statusData.forEach(item => {
-                    switch (item.status) {
-                        case 'production':
-                            this.stats.production = item.count;
-                            break;
-                        case 'test':
-                            this.stats.testing = item.count;
-                            break;
-                        case 'draft':
-                            this.stats.draft = item.count;
-                            break;
-                        case 'idea':
-                            this.stats.idea = item.count;
-                            break;
-                    }
-                });
+            if (statusData && typeof statusData === 'object') {
+                // Handle object format returned by API: {"draft": 3, "idea": 3, "production": 4, "test": 3}
+                this.stats.production = statusData.production || 0;
+                this.stats.testing = statusData.test || 0;  // API returns "test", we map to "testing"
+                this.stats.draft = statusData.draft || 0;
+                this.stats.idea = statusData.idea || 0;
             }
         },
 
         updateCoverageSummary(summary) {
             if (summary) {
-                this.stats.techniquesCovered = summary.techniques_covered || 0;
-                this.stats.totalTechniques = summary.total_techniques || 0;
-                this.stats.tacticsCovered = summary.tactics_covered || 0;
-                this.stats.totalTactics = summary.total_tactics || 0;
+                // API returns: {"coveredTactics":3,"coveredTechniques":4,"totalTactics":14,"totalTechniques":679}
+                this.stats.techniquesCovered = summary.coveredTechniques || 0;
+                this.stats.totalTechniques = summary.totalTechniques || 0;
+                this.stats.tacticsCovered = summary.coveredTactics || 0;
+                this.stats.totalTactics = summary.totalTactics || 0;
             }
         },
 
@@ -227,6 +261,67 @@ function dashboardData() {
         getTacticCoveragePercentage() {
             if (this.stats.totalTactics === 0) return 0;
             return Math.round((this.stats.tacticsCovered / this.stats.totalTactics) * 100);
+        },
+
+        formatTime(date) {
+            if (!date) return 'Never';
+            return date.toLocaleString();
+        },
+
+        renderChart() {
+            const ctx = document.getElementById('mitreChart');
+            if (!ctx || !this.mitreData) return;
+
+            // The API returns coverage percentages by tactic: {"Collection":7.5,"Command and Control":0,...}
+            const labels = Object.keys(this.mitreData);
+            const data = labels.map(tactic => this.mitreData[tactic] || 0);
+
+            if (this.chart) {
+                this.chart.destroy();
+            }
+
+            this.chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Coverage %',
+                        data: data,
+                        backgroundColor: '#3b82f6',
+                        borderColor: '#2563eb',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'MITRE ATT&CK Coverage by Tactic'
+                        },
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    }
+                }
+            });
         }
     };
 }
