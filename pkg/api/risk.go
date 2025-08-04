@@ -288,6 +288,26 @@ func (h *RiskHandler) MarkEventAsFalsePositive(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// UnmarkEventAsFalsePositive handles DELETE /api/events/{id}/false-positive
+func (h *RiskHandler) UnmarkEventAsFalsePositive(w http.ResponseWriter, r *http.Request) {
+	// Extract ID from URL path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		return
+	}
+
+	// Unmark event as false positive
+	if err := h.engine.UnmarkEventAsFalsePositive(id); err != nil {
+		http.Error(w, "Error unmarking event as false positive", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // RiskAlertsResponse represents the paginated response for risk alerts
 type RiskAlertsResponse struct {
 	Alerts     []*models.RiskAlert `json:"alerts"`

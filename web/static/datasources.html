@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/datasources.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
@@ -31,174 +33,7 @@
     </header>
 
     <main class="container">
-        <div class="card" x-data="{ 
-            dataSources: [],
-            filteredDataSources: [],
-            searchTerm: '',
-            showForm: false,
-            newDataSource: {
-                name: '',
-                description: '',
-                log_format: ''
-            },
-            selectedDataSource: null,
-            utilization: {},
-            associatedDetections: [],
-            associatedTechniques: [],
-            
-            async fetchDataSources() {
-                const response = await fetch('/api/datasources');
-                if (response.ok) {
-                    this.dataSources = await response.json();
-                    this.applyFilters();
-                }
-            },
-            
-            async fetchUtilization() {
-                const response = await fetch('/api/datasources/utilization');
-                if (response.ok) {
-                    this.utilization = await response.json();
-                    this.renderUtilizationChart();
-                }
-            },
-            
-            applyFilters() {
-                this.filteredDataSources = this.dataSources.filter(ds => {
-                    const matchesSearch = this.searchTerm === '' || 
-                        ds.name.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
-                        (ds.description && ds.description.toLowerCase().includes(this.searchTerm.toLowerCase()));
-                    return matchesSearch;
-                });
-            },
-            
-            async createDataSource() {
-                const response = await fetch('/api/datasources', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(this.newDataSource)
-                });
-                
-                if (response.ok) {
-                    this.showForm = false;
-                    this.newDataSource = {
-                        name: '',
-                        description: '',
-                        log_format: ''
-                    };
-                    await this.fetchDataSources();
-                    await this.fetchUtilization();
-                }
-            },
-            
-            async selectDataSource(id) {
-                const response = await fetch(`/api/datasources/${id}`);
-                if (response.ok) {
-                    this.selectedDataSource = await response.json();
-                    await this.fetchAssociatedDetections(id);
-                    await this.fetchAssociatedTechniques(id);
-                }
-            },
-            
-            async fetchAssociatedDetections(id) {
-                const response = await fetch(`/api/datasources/id/${id}/detections`);
-                if (response.ok) {
-                    this.associatedDetections = await response.json();
-                } else {
-                    this.associatedDetections = [];
-                }
-            },
-            
-            async fetchAssociatedTechniques(id) {
-                const response = await fetch(`/api/datasources/id/${id}/techniques`);
-                if (response.ok) {
-                    this.associatedTechniques = await response.json();
-                } else {
-                    this.associatedTechniques = [];
-                }
-            },
-            
-            async updateDataSource() {
-                const response = await fetch(`/api/datasources/${this.selectedDataSource.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(this.selectedDataSource)
-                });
-                
-                if (response.ok) {
-                    this.selectedDataSource = null;
-                    await this.fetchDataSources();
-                    await this.fetchUtilization();
-                }
-            },
-            
-            async deleteDataSource(id) {
-                if (!confirm('Are you sure you want to delete this data source?')) {
-                    return;
-                }
-                
-                const response = await fetch(`/api/datasources/${id}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    this.selectedDataSource = null;
-                    await this.fetchDataSources();
-                    await this.fetchUtilization();
-                }
-            },
-            
-            renderUtilizationChart() {
-                if (!this.utilization || Object.keys(this.utilization).length === 0) return;
-                
-                const ctx = document.getElementById('utilizationChart');
-                if (!ctx) return;
-                
-                // Destroy existing chart if it exists
-                if (this.chart) {
-                    this.chart.destroy();
-                }
-                
-                const labels = Object.keys(this.utilization);
-                const data = Object.values(this.utilization);
-                
-                this.chart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Number of Detections',
-                            data: data,
-                            backgroundColor: 'rgba(52, 152, 219, 0.7)',
-                            borderColor: 'rgba(52, 152, 219, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Number of Detections'
-                                }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Data Sources'
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }" x-init="fetchDataSources(); fetchUtilization()">
+        <div class="card" x-data="dataSourcesData()" x-init="init()">
             <div class="card-header">
                 <h2>Data Sources</h2>
                 <div class="card-actions">
@@ -224,7 +59,8 @@
             
             <!-- Data Source List -->
             <div class="datasource-list" x-show="!showForm && !selectedDataSource">
-                <table>
+                <div class="table-container">
+                    <table>
                     <thead>
                         <tr>
                             <th>Name</th>
@@ -251,7 +87,8 @@
                             <td colspan="5" class="text-center">No data sources found</td>
                         </tr>
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
             
             <!-- New Data Source Form -->
@@ -302,7 +139,8 @@
                         <div x-show="associatedDetections.length === 0" class="empty-state">
                             No detections associated with this data source.
                         </div>
-                        <table x-show="associatedDetections.length > 0">
+                        <div class="table-container" x-show="associatedDetections.length > 0">
+                            <table>
                             <thead>
                                 <tr>
                                     <th>Name</th>
@@ -334,7 +172,8 @@
                         <div x-show="associatedTechniques.length === 0" class="empty-state">
                             No MITRE techniques associated with this data source.
                         </div>
-                        <table x-show="associatedTechniques.length > 0">
+                        <div class="table-container" x-show="associatedTechniques.length > 0">
+                            <table>
                             <thead>
                                 <tr>
                                     <th>ID</th>
@@ -355,7 +194,8 @@
                                     </tr>
                                 </template>
                             </tbody>
-                        </table>
+                            </table>
+                        </div>
                     </div>
                     
                     <div class="form-actions">

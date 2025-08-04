@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/mitre.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
@@ -31,165 +33,7 @@
     </header>
 
     <main>
-        <div class="card" x-data="{
-            techniques: [],
-            filteredTechniques: [],
-            tacticFilter: 'all',
-            searchTerm: '',
-            coverage: {},
-            selectedTechnique: null,
-            detectionsByTechnique: [],
-            techniqueDetectionCounts: {},
-            
-            async fetchTechniques() {
-                const response = await fetch('/api/mitre/techniques');
-                if (response.ok) {
-                    this.techniques = await response.json();
-                    this.applyFilters();
-                }
-            },
-            
-            async fetchDetectionCountsByTactic() {
-                // Calculate detection counts by tactic from technique detection counts
-                const tacticCounts = {};
-                
-                // First ensure we have technique detection counts
-                if (Object.keys(this.techniqueDetectionCounts).length === 0) {
-                    await this.fetchTechniqueDetectionCounts();
-                }
-                
-                // Group techniques by tactic and sum detection counts
-                this.techniques.forEach(technique => {
-                    const tactic = technique.tactic;
-                    const detectionCount = this.techniqueDetectionCounts[technique.id] || 0;
-                    
-                    if (!tacticCounts[tactic]) {
-                        tacticCounts[tactic] = 0;
-                    }
-                    tacticCounts[tactic] += detectionCount;
-                });
-                
-                this.coverage = tacticCounts;
-                this.renderCoverageChart();
-            },
-            
-            applyFilters() {
-                this.filteredTechniques = this.techniques.filter(t => {
-                    const matchesTactic = this.tacticFilter === 'all' || t.tactic === this.tacticFilter;
-                    const matchesSearch = this.searchTerm === '' || 
-                        t.id.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
-                        t.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                        t.description?.toLowerCase().includes(this.searchTerm.toLowerCase());
-                    return matchesTactic && matchesSearch;
-                });
-            },
-            
-            async selectTechnique(id) {
-                const response = await fetch(`/api/mitre/techniques/${id}`);
-                if (response.ok) {
-                    this.selectedTechnique = await response.json();
-                    this.fetchDetectionsByTechnique(id);
-                }
-            },
-            
-            async fetchDetectionsByTechnique(id) {
-                const response = await fetch(`/api/mitre/techniques/${id}/detections`);
-                if (response.ok) {
-                    this.detectionsByTechnique = await response.json();
-                }
-            },
-            
-            async fetchTechniqueDetectionCounts() {
-                // Fetch detection counts for all techniques
-                const newCounts = {};
-                for (const technique of this.techniques) {
-                    try {
-                        const response = await fetch(`/api/mitre/techniques/${technique.id}/detections`);
-                        if (response.ok) {
-                            const detections = await response.json();
-                            newCounts[technique.id] = detections.length;
-                        } else {
-                            newCounts[technique.id] = 0;
-                        }
-                    } catch (error) {
-                        console.error(`Error fetching detections for technique ${technique.id}:`, error);
-                        newCounts[technique.id] = 0;
-                    }
-                }
-                // Update the reactive data property to trigger re-render
-                this.techniqueDetectionCounts = newCounts;
-            },
-            
-            renderCoverageChart() {
-                if (!this.coverage || Object.keys(this.coverage).length === 0) return;
-                
-                const ctx = document.getElementById('coverageChart');
-                if (!ctx) return;
-                
-                // Destroy existing chart if it exists
-                if (this.chart) {
-                    this.chart.destroy();
-                }
-                
-                const tactics = Object.keys(this.coverage);
-                const detectionCounts = tactics.map(tactic => this.coverage[tactic]);
-                
-                this.chart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: tactics,
-                        datasets: [{
-                            label: 'Detection Count',
-                            data: detectionCounts,
-                            backgroundColor: 'rgba(52, 152, 219, 0.7)',
-                            borderColor: 'rgba(52, 152, 219, 1)',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    stepSize: 1
-                                },
-                                title: {
-                                    display: true,
-                                    text: 'Number of Detections'
-                                }
-                            },
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Tactics'
-                                }
-                            }
-                        }
-                    }
-                });
-            },
-            
-            renderMatrixView() {
-                // Group techniques by tactic
-                const tacticGroups = {};
-                this.techniques.forEach(technique => {
-                    if (!tacticGroups[technique.tactic]) {
-                        tacticGroups[technique.tactic] = [];
-                    }
-                    tacticGroups[technique.tactic].push(technique);
-                });
-                
-                return tacticGroups;
-            },
-            
-            getTechniqueColor(id) {
-                // Check if technique has detections using the detection counts
-                const detectionCount = this.techniqueDetectionCounts[id] || 0;
-                return detectionCount > 0 ? 'rgba(46, 204, 113, 0.7)' : 'rgba(231, 76, 60, 0.2)';
-            }
-        }" x-init="fetchTechniques().then(() => fetchTechniqueDetectionCounts()).then(() => fetchDetectionCountsByTactic())">
+        <div class="card" x-data="mitreData()" x-init="init()">
             <div class="card-header">
                 <h2>Detection Count by Tactic</h2>
             </div>
@@ -207,7 +51,19 @@
                 <div class="matrix-header">
                     <h3 class="matrix-title">ATT&CK Matrix</h3>
                 </div>
-                <div class="matrix-grid">
+                
+                <!-- Empty State Message -->
+                <div x-show="techniques.length === 0" class="empty-state-message">
+                    <div class="empty-state-content">
+                        <h4>No MITRE ATT&CK Techniques Found</h4>
+                        <p>The MITRE ATT&CK techniques database appears to be empty.</p>
+                        <p>To populate the database, run the following command:</p>
+                        <code>go run ./cmd/import-mitre</code>
+                        <p>This will import MITRE ATT&CK techniques from the data/mitre.csv file.</p>
+                    </div>
+                </div>
+                
+                <div class="matrix-grid" x-show="techniques.length > 0">
                     <!-- Custom Tooltip -->
                     <div class="technique-tooltip" x-ref="tooltip" style="display: none;">
                         <div class="tooltip-header">
@@ -709,6 +565,45 @@
             font-size: 12px;
             color: #666;
             line-height: 1.4;
+        }
+        
+        /* Empty State Styling */
+        .empty-state-message {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+            padding: 2rem;
+        }
+        
+        .empty-state-content {
+            text-align: center;
+            max-width: 600px;
+            padding: 2rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .empty-state-content h4 {
+            color: #495057;
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state-content p {
+            color: #6c757d;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+        
+        .empty-state-content code {
+            background: #e9ecef;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #495057;
+            display: inline-block;
+            margin: 0.5rem 0;
         }
     </style>
 </body>

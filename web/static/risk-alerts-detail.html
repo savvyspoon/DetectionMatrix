@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/risk-alerts-detail.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -30,133 +32,7 @@
     </header>
 
     <main class="container">
-        <div class="card" x-data="{ 
-            alert: null,
-            riskObject: null,
-            events: [],
-            detections: {},
-            loading: true,
-            alertId: null,
-            
-            init() {
-                const urlParams = new URLSearchParams(window.location.search);
-                this.alertId = urlParams.get('id');
-                if (this.alertId) {
-                    this.fetchAlertDetails();
-                }
-            },
-            
-            async fetchAlertDetails() {
-                this.loading = true;
-                try {
-                    // Fetch alert details
-                    const alertResponse = await fetch(`/api/risk/alerts/${this.alertId}`);
-                    if (alertResponse.ok) {
-                        this.alert = await alertResponse.json();
-                        await this.fetchRiskObject();
-                        await this.fetchEvents();
-                        await this.fetchDetections();
-                    }
-                } catch (error) {
-                    console.error('Error fetching alert details:', error);
-                } finally {
-                    this.loading = false;
-                }
-            },
-            
-            async fetchRiskObject() {
-                if (!this.alert) return;
-                
-                const response = await fetch(`/api/risk/objects/${this.alert.entity_id}`);
-                if (response.ok) {
-                    this.riskObject = await response.json();
-                }
-            },
-            
-            async fetchEvents() {
-                if (!this.alert) return;
-                
-                const response = await fetch(`/api/risk/alerts/${this.alertId}/events`);
-                if (response.ok) {
-                    this.events = await response.json();
-                }
-            },
-            
-            async fetchDetections() {
-                const response = await fetch('/api/detections');
-                if (response.ok) {
-                    const detectionsList = await response.json();
-                    this.detections = {};
-                    detectionsList.forEach(d => {
-                        this.detections[d.id] = d;
-                    });
-                }
-            },
-            
-            formatTimestamp(timestamp) {
-                return new Date(timestamp).toLocaleString();
-            },
-            
-            getRiskLevelClass(score) {
-                if (score >= 80) return 'risk-critical';
-                if (score >= 60) return 'risk-high';
-                if (score >= 40) return 'risk-medium';
-                return 'risk-low';
-            },
-            
-            getRiskLevelText(score) {
-                if (score >= 80) return 'Critical';
-                if (score >= 60) return 'High';
-                if (score >= 40) return 'Medium';
-                return 'Low';
-            },
-            
-            getDetectionName(detectionId) {
-                return this.detections[detectionId]?.name || `Detection ${detectionId}`;
-            },
-            
-            parseContext(contextStr) {
-                if (!contextStr) return null;
-                try {
-                    return JSON.parse(contextStr);
-                } catch (e) {
-                    return null;
-                }
-            },
-            
-            async updateAlert() {
-                if (!this.alert) return;
-                
-                try {
-                    const response = await fetch(`/api/risk/alerts/${this.alert.id}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            id: this.alert.id,
-                            entity_id: this.alert.entity_id,
-                            triggered_at: this.alert.triggered_at,
-                            total_score: this.alert.total_score,
-                            status: this.alert.status,
-                            notes: this.alert.notes,
-                            owner: this.alert.owner
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        const updatedAlert = await response.json();
-                        this.alert = updatedAlert;
-                        alert('Alert updated successfully!');
-                    } else {
-                        alert('Error updating alert. Please try again.');
-                    }
-                } catch (error) {
-                    console.error('Error updating alert:', error);
-                    alert('Error updating alert. Please try again.');
-                }
-            }
-        }" x-init="init()">
+        <div class="card" x-data="riskAlertDetailData()" x-init="init()">
             
             <!-- Back Button -->
             <div class="back-button">

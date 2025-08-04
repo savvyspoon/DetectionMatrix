@@ -8,7 +8,16 @@
       "Bash(ls:*)",
       "Bash(powershell:*)",
       "Bash(set CGO_ENABLED=1)",
-      "Bash(go run:*)"
+      "Bash(go run:*)",
+      "Bash($env:CGO_ENABLED=1)",
+      "Bash(go build:*)",
+      "Bash(start server.exe)",
+      "Bash(rm:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(for file in *.html)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)"
     ],
     "deny": []
   }

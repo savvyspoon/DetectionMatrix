@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/detections-add.js"></script>
 </head>
 <body>
     <header>
@@ -30,36 +32,7 @@
     </header>
 
     <main class="container">
-        <div class="card" x-data="{ 
-            newDetection: {
-                name: '',
-                description: '',
-                status: 'idea',
-                severity: 'medium',
-                risk_points: 50,
-                playbook_link: '',
-                owner: '',
-                risk_object: '',
-                testing_description: '',
-            },
-            
-            async createDetection() {
-                const response = await fetch('/api/detections', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(this.newDetection)
-                });
-                
-                if (response.ok) {
-                    // Redirect back to the list view
-                    window.location.href = 'detections-list.html';
-                } else {
-                    alert('Error creating detection. Please try again.');
-                }
-            }
-        }">
+        <div class="card" x-data="detectionAddData()">
             <div class="card-header">
                 <h2>Add New Detection</h2>
                 <div class="card-actions">

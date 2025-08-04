@@ -110,6 +110,7 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /api/events/{id}", riskHandler.GetEvent)
 	s.router.HandleFunc("GET /api/events/entity/{id}", riskHandler.ListEventsByEntity)
 	s.router.HandleFunc("POST /api/events/{id}/false-positive", riskHandler.MarkEventAsFalsePositive)
+	s.router.HandleFunc("DELETE /api/events/{id}/false-positive", riskHandler.UnmarkEventAsFalsePositive)
 	s.router.HandleFunc("GET /api/risk/objects", riskHandler.ListRiskObjects)
 	s.router.HandleFunc("GET /api/risk/objects/{id}", riskHandler.GetRiskObject)
 	s.router.HandleFunc("GET /api/risk/objects/entity", riskHandler.GetRiskObjectByEntity)

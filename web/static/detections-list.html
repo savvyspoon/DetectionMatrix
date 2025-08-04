@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/detections-list.js"></script>
 </head>
 <body>
     <header>
@@ -30,60 +32,7 @@
     </header>
 
     <main class="container">
-        <div class="card" x-data="{ 
-            detections: [],
-            filteredDetections: [],
-            statusFilter: 'all',
-            severityFilter: 'all',
-            searchTerm: '',
-            
-            async fetchDetections() {
-                const response = await fetch('/api/detections');
-                if (response.ok) {
-                    this.detections = await response.json();
-                    this.applyFilters();
-                }
-            },
-            
-            applyFilters() {
-                this.filteredDetections = this.detections.filter(d => {
-                    const matchesStatus = this.statusFilter === 'all' || d.status === this.statusFilter;
-                    const matchesSeverity = this.severityFilter === 'all' || d.severity === this.severityFilter;
-                    const matchesSearch = this.searchTerm === '' || 
-                        d.name.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
-                        d.description.toLowerCase().includes(this.searchTerm.toLowerCase());
-                    return matchesStatus && matchesSeverity && matchesSearch;
-                });
-            },
-            
-            async deleteDetection(id) {
-                if (!confirm('Are you sure you want to delete this detection?')) {
-                    return;
-                }
-                
-                const response = await fetch(`/api/detections/${id}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    await this.fetchDetections();
-                }
-            },
-            
-            getStatusClass(status) {
-                return `status status-${status}`;
-            },
-            
-            getSeverityClass(severity) {
-                switch(severity) {
-                    case 'low': return 'badge badge-secondary';
-                    case 'medium': return 'badge badge-warning';
-                    case 'high': return 'badge badge-danger';
-                    case 'critical': return 'badge badge-danger';
-                    default: return 'badge';
-                }
-            }
-        }" x-init="fetchDetections()">
+        <div class="card" x-data="detectionsListData()" x-init="init()">
             <div class="card-header">
                 <h2>Detections</h2>
                 <div class="card-actions">
@@ -124,18 +73,19 @@
             
             <!-- Detection List -->
             <div class="detection-list">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Owner</th>
-                            <th>Risk Object</th>
-                            <th>Status</th>
-                            <th>Severity</th>
-                            <th>Risk Points</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Owner</th>
+                                <th>Risk Object</th>
+                                <th>Status</th>
+                                <th>Severity</th>
+                                <th>Risk Points</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
                     <tbody>
                         <template x-for="detection in filteredDetections" :key="detection.id">
                             <tr>
@@ -159,7 +109,8 @@
                             <td colspan="7" class="text-center">No detections found</td>
                         </tr>
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
         </div>
     </main>

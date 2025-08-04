@@ -210,6 +210,58 @@ func (e *Engine) MarkEventAsFalsePositive(eventID int64, fpInfo *models.FalsePos
 	return nil
 }
 
+// UnmarkEventAsFalsePositive unmarks an event as a false positive and re-adds risk points
+func (e *Engine) UnmarkEventAsFalsePositive(eventID int64) error {
+	// Begin transaction
+	tx, err := e.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	
+	// Get event
+	event, err := e.repo.GetEventTx(tx, eventID)
+	if err != nil {
+		return fmt.Errorf("failed to get event: %w", err)
+	}
+	
+	// Check if event is marked as false positive
+	if !event.IsFalsePositive {
+		return fmt.Errorf("event is not marked as false positive")
+	}
+	
+	// Unmark event as false positive
+	event.IsFalsePositive = false
+	if err := e.repo.UpdateEventTx(tx, event); err != nil {
+		return fmt.Errorf("failed to update event: %w", err)
+	}
+	
+	// Delete false positive record
+	if err := e.repo.DeleteFalsePositiveByEventTx(tx, eventID); err != nil {
+		return fmt.Errorf("failed to delete false positive record: %w", err)
+	}
+	
+	// Re-add risk points to entity
+	riskObject, err := e.repo.GetRiskObjectTx(tx, event.EntityID)
+	if err != nil {
+		return fmt.Errorf("failed to get risk object: %w", err)
+	}
+	
+	// Add back risk points
+	riskObject.CurrentScore += event.RiskPoints
+	
+	if err := e.repo.UpdateRiskObjectTx(tx, riskObject); err != nil {
+		return fmt.Errorf("failed to update risk object: %w", err)
+	}
+	
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	
+	return nil
+}
+
 // GetHighRiskEntities returns entities with risk scores above the threshold
 func (e *Engine) GetHighRiskEntities() ([]*models.RiskObject, error) {
 	return e.repo.ListHighRiskObjects(e.config.RiskThreshold)

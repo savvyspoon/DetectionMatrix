@@ -9,6 +9,8 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/dashboard.js"></script>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -202,13 +204,13 @@
             </div>
             <nav>
                 <ul>
-                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="index.html" class="active">Dashboard</a></li>
                     <li><a href="detections-list.html">Detections</a></li>
                     <li><a href="mitre.html">MITRE ATT&CK</a></li>
                     <li><a href="datasources.html">Data Sources</a></li>
                     <li><a href="events.html">Events</a></li>
                     <li><a href="risk-objects.html">Risk Objects</a></li>
-                    <li><a href="/alerts">Risk Alerts</a></li>
+                    <li><a href="risk-alerts.html">Risk Alerts</a></li>
                 </ul>
             </nav>
         </div>
@@ -302,223 +304,5 @@
         </div>
     </footer>
 
-    <script>
-        function dashboardData() {
-            return {
-                lastUpdated: new Date(),
-                stats: {
-                    totalDetections: 0,
-                    production: 0,
-                    testing: 0,
-                    draft: 0,
-                    idea: 0,
-                    techniquesCovered: 0,
-                    totalTechniques: 0,
-                    tacticsCovered: 0,
-                    totalTactics: 0,
-                    highRiskEntities: 0,
-                    activeAlerts: 0,
-                    eventsToday: 0,
-                    falsePositives: 0
-                },
-                mitreData: {},
-                chart: null,
-
-                init() {
-                    this.$nextTick(() => {
-                        this.fetchDetectionCount();
-                        this.fetchDetectionCountByStatus();
-                        this.fetchMitreCoverageSummary();
-                        this.fetchMitreCoverageByTactic().then(() => {
-                            this.renderChart();
-                        });
-                        // Fetch Risk Overview data
-                        this.fetchHighRiskEntities();
-                        this.fetchActiveAlerts();
-                        this.fetchEventsToday();
-                        this.fetchFalsePositives();
-                    });
-                },
-
-                async fetchDetectionCount() {
-                    try {
-                        const response = await fetch('/api/detections/count');
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.stats.totalDetections = data.count;
-                        }
-                    } catch (error) {
-                        console.error('Error fetching detection count:', error);
-                    }
-                },
-
-                async fetchDetectionCountByStatus() {
-                    try {
-                        const response = await fetch('/api/detections/count/status');
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.stats.production = data.production || 0;
-                            this.stats.testing = data.test || 0;
-                            this.stats.draft = data.draft || 0;
-                            this.stats.idea = data.idea || 0;
-                        }
-                    } catch (error) {
-                        console.error('Error fetching detection counts by status:', error);
-                    }
-                },
-
-                async fetchMitreCoverageSummary() {
-                    try {
-                        const response = await fetch('/api/mitre/coverage/summary');
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.stats.techniquesCovered = data.coveredTechniques || 0;
-                            this.stats.totalTechniques = data.totalTechniques || 0;
-                            this.stats.tacticsCovered = data.coveredTactics || 0;
-                            this.stats.totalTactics = data.totalTactics || 0;
-                        }
-                    } catch (error) {
-                        console.error('Error fetching MITRE coverage summary:', error);
-                    }
-                },
-
-                async fetchMitreCoverageByTactic() {
-                    try {
-                        const response = await fetch('/api/mitre/coverage');
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.mitreData = data;
-                        }
-                    } catch (error) {
-                        console.error('Error fetching MITRE coverage by tactic:', error);
-                    }
-                },
-
-                async fetchHighRiskEntities() {
-                    try {
-                        const response = await fetch('/api/risk/high');
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.stats.highRiskEntities = data.length || 0;
-                        }
-                    } catch (error) {
-                        console.error('Error fetching high risk entities:', error);
-                    }
-                },
-
-                async fetchActiveAlerts() {
-                    try {
-                        const response = await fetch('/api/risk/alerts');
-                        if (response.ok) {
-                            const data = await response.json();
-                            // Count alerts that are not closed
-                            const activeAlerts = data.filter(alert => alert.status !== 'Closed');
-                            this.stats.activeAlerts = activeAlerts.length || 0;
-                        }
-                    } catch (error) {
-                        console.error('Error fetching active alerts:', error);
-                    }
-                },
-
-                async fetchEventsToday() {
-                    try {
-                        const response = await fetch('/api/events');
-                        if (response.ok) {
-                            const data = await response.json();
-                            const today = new Date().toDateString();
-                            // Filter events for today
-                            const todayEvents = data.events.filter(event => {
-                                const eventDate = new Date(event.timestamp).toDateString();
-                                return eventDate === today;
-                            });
-                            this.stats.eventsToday = todayEvents.length || 0;
-                        }
-                    } catch (error) {
-                        console.error('Error fetching events today:', error);
-                    }
-                },
-
-                async fetchFalsePositives() {
-                    try {
-                        const response = await fetch('/api/events');
-                        if (response.ok) {
-                            const data = await response.json();
-                            // Count false positive events
-                            const falsePositives = data.events.filter(event => event.is_false_positive === true);
-                            this.stats.falsePositives = falsePositives.length || 0;
-                        }
-                    } catch (error) {
-                        console.error('Error fetching false positives:', error);
-                    }
-                },
-
-                formatTime(date) {
-                    return date.toLocaleTimeString();
-                },
-
-                refreshData() {
-                    this.lastUpdated = new Date();
-                    // Fetch actual data
-                    this.fetchDetectionCount();
-                    this.fetchDetectionCountByStatus();
-                    this.fetchMitreCoverageSummary();
-                    this.fetchMitreCoverageByTactic().then(() => {
-                        this.renderChart();
-                    });
-                    // Fetch Risk Overview data
-                    this.fetchHighRiskEntities();
-                    this.fetchActiveAlerts();
-                    this.fetchEventsToday();
-                    this.fetchFalsePositives();
-                },
-
-                renderChart() {
-                    const ctx = document.getElementById('mitreChart');
-                    if (!ctx) return;
-
-                    if (this.chart) {
-                        this.chart.destroy();
-                    }
-
-                    const labels = Object.keys(this.mitreData);
-                    const data = Object.values(this.mitreData);
-
-                    this.chart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Coverage (%)',
-                                data: data,
-                                backgroundColor: 'rgba(52, 152, 219, 0.7)',
-                                borderColor: 'rgba(52, 152, 219, 1)',
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    max: 100,
-                                    title: {
-                                        display: true,
-                                        text: 'Coverage (%)'
-                                    }
-                                },
-                                x: {
-                                    title: {
-                                        display: true,
-                                        text: 'Tactics'
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-        }
-    </script>
 </body>
 </html>

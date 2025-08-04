@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/risk-alerts.js"></script>
 </head>
 <body>
     <header>
@@ -30,201 +32,7 @@
     </header>
 
     <main class="container">
-        <div class="card" x-data="{ 
-            alerts: [],
-            filteredAlerts: [],
-            riskObjects: {},
-            searchTerm: '',
-            statusFilter: '',
-            sortBy: 'triggered_at',
-            sortOrder: 'desc',
-            
-            // Pagination state
-            currentPage: 1,
-            pageSize: 20,
-            totalCount: 0,
-            totalPages: 0,
-            isPaginated: false,
-            
-            async fetchAlerts() {
-                // Build URL with pagination and filters
-                let url = '/api/risk/alerts';
-                const params = new URLSearchParams();
-                
-                // Add pagination parameters
-                params.append('page', this.currentPage.toString());
-                params.append('limit', this.pageSize.toString());
-                
-                // Add status filter if set
-                if (this.statusFilter) {
-                    params.append('status', this.statusFilter);
-                }
-                
-                url += '?' + params.toString();
-                
-                const response = await fetch(url);
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // Check if response is paginated or legacy format
-                    if (data.alerts !== undefined) {
-                        // Paginated response
-                        this.alerts = data.alerts;
-                        this.totalCount = data.total_count;
-                        this.totalPages = data.total_pages;
-                        this.currentPage = data.page;
-                        this.pageSize = data.page_size;
-                        this.isPaginated = true;
-                        this.filteredAlerts = this.alerts; // No client-side filtering with pagination
-                    } else {
-                        // Legacy response (array of alerts)
-                        this.alerts = data;
-                        this.totalCount = data.length;
-                        this.totalPages = 1;
-                        this.isPaginated = false;
-                        this.applyFilters(); // Apply client-side filtering for legacy mode
-                    }
-                    
-                    await this.fetchRiskObjects();
-                }
-            },
-            
-            async fetchRiskObjects() {
-                const response = await fetch('/api/risk/objects');
-                if (response.ok) {
-                    const riskObjectsList = await response.json();
-                    this.riskObjects = {};
-                    riskObjectsList.forEach(ro => {
-                        this.riskObjects[ro.id] = ro;
-                    });
-                }
-            },
-            
-            applyFilters() {
-                this.filteredAlerts = this.alerts.filter(alert => {
-                    const entityInfo = this.getEntityInfo(alert.entity_id);
-                    const matchesSearch = this.searchTerm === '' || 
-                        entityInfo.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                        alert.total_score.toString().includes(this.searchTerm) ||
-                        alert.status.toLowerCase().includes(this.searchTerm.toLowerCase());
-                    
-                    return matchesSearch;
-                });
-                
-                this.sortAlerts();
-            },
-            
-            sortAlerts() {
-                this.filteredAlerts.sort((a, b) => {
-                    let aVal, bVal;
-                    
-                    switch(this.sortBy) {
-                        case 'triggered_at':
-                            aVal = new Date(a.triggered_at);
-                            bVal = new Date(b.triggered_at);
-                            break;
-                        case 'total_score':
-                            aVal = a.total_score;
-                            bVal = b.total_score;
-                            break;
-                        case 'entity':
-                            aVal = this.getEntityInfo(a.entity_id);
-                            bVal = this.getEntityInfo(b.entity_id);
-                            break;
-                        case 'status':
-                            aVal = a.status;
-                            bVal = b.status;
-                            break;
-                        default:
-                            return 0;
-                    }
-                    
-                    if (this.sortOrder === 'asc') {
-                        return aVal > bVal ? 1 : -1;
-                    } else {
-                        return aVal < bVal ? 1 : -1;
-                    }
-                });
-            },
-            
-            getEntityInfo(entityId) {
-                const riskObject = this.riskObjects[entityId];
-                return riskObject ? `${riskObject.entity_value} (${riskObject.entity_type})` : `Entity ${entityId}`;
-            },
-            
-            formatTimestamp(timestamp) {
-                return new Date(timestamp).toLocaleString();
-            },
-            
-            getRiskLevelClass(score) {
-                if (score >= 80) return 'risk-critical';
-                if (score >= 60) return 'risk-high';
-                if (score >= 40) return 'risk-medium';
-                return 'risk-low';
-            },
-            
-            getRiskLevelText(score) {
-                if (score >= 80) return 'Critical';
-                if (score >= 60) return 'High';
-                if (score >= 40) return 'Medium';
-                return 'Low';
-            },
-            
-            getStatusClass(status) {
-                switch(status) {
-                    case 'New': return 'status-new';
-                    case 'Triage': return 'status-triage';
-                    case 'Investigation': return 'status-investigation';
-                    case 'On Hold': return 'status-on-hold';
-                    case 'Incident': return 'status-incident';
-                    case 'Closed': return 'status-closed';
-                    default: return 'status-unknown';
-                }
-            },
-            
-            // Pagination methods
-            async goToPage(page) {
-                if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
-                    this.currentPage = page;
-                    await this.fetchAlerts();
-                }
-            },
-            
-            async previousPage() {
-                if (this.currentPage > 1) {
-                    await this.goToPage(this.currentPage - 1);
-                }
-            },
-            
-            async nextPage() {
-                if (this.currentPage < this.totalPages) {
-                    await this.goToPage(this.currentPage + 1);
-                }
-            },
-            
-            async changePageSize() {
-                this.currentPage = 1; // Reset to first page when changing page size
-                await this.fetchAlerts();
-            },
-            
-            getPageNumbers() {
-                const pages = [];
-                const maxVisiblePages = 5;
-                let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
-                let endPage = Math.min(this.totalPages, startPage + maxVisiblePages - 1);
-                
-                // Adjust start page if we're near the end
-                if (endPage - startPage + 1 < maxVisiblePages) {
-                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
-                }
-                
-                for (let i = startPage; i <= endPage; i++) {
-                    pages.push(i);
-                }
-                
-                return pages;
-            }
-        }" x-init="fetchAlerts()">
+        <div class="card" x-data="riskAlertsData()" x-init="init()">
             <div class="card-header">
                 <h2>Risk Alerts</h2>
                 <div class="alert-stats">
@@ -289,7 +97,8 @@
             
             <!-- Alerts List -->
             <div class="alerts-list">
-                <table>
+                <div class="table-container">
+                    <table>
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -305,8 +114,11 @@
                         <template x-for="alert in filteredAlerts" :key="alert.id">
                             <tr>
                                 <td x-text="alert.id"></td>
-                                <td x-text="getEntityInfo(alert.entity_id)"></td>
-                                <td x-text="alert.total_score"></td>
+                                <td x-text="getRiskObjectValue(alert.entity_id)"></td>
+                                <td>
+                                    <span x-text="alert.total_score" 
+                                          :class="'risk-score ' + getRiskLevelClass(alert.total_score)"></span>
+                                </td>
                                 <td>
                                     <span x-text="getRiskLevelText(alert.total_score)" 
                                           :class="'badge ' + getRiskLevelClass(alert.total_score)"></span>
@@ -325,7 +137,8 @@
                             <td colspan="7" class="text-center">No risk alerts found</td>
                         </tr>
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
             
             <!-- Pagination Controls -->
@@ -421,6 +234,11 @@
             text-transform: uppercase;
         }
         
+        .risk-minimal {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
         .risk-low {
             background-color: #d4edda;
             color: #155724;
@@ -437,8 +255,15 @@
         }
         
         .risk-critical {
-            background-color: #d1ecf1;
-            color: #0c5460;
+            background-color: #f5c6cb;
+            color: #721c24;
+        }
+        
+        .risk-score {
+            font-weight: bold;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
         }
         
         .status-new {

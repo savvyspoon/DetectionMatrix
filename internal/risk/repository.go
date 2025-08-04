@@ -170,6 +170,7 @@ func (r *Repository) GetEventTx(tx *sql.Tx, id int64) (*models.Event, error) {
 	
 	var event models.Event
 	var timestamp string
+	var context sql.NullString
 	
 	err := row.Scan(
 		&event.ID,
@@ -177,7 +178,7 @@ func (r *Repository) GetEventTx(tx *sql.Tx, id int64) (*models.Event, error) {
 		&event.EntityID,
 		&timestamp,
 		&event.RawData,
-		&event.Context,
+		&context,
 		&event.RiskPoints,
 		&event.IsFalsePositive,
 	)
@@ -191,6 +192,11 @@ func (r *Repository) GetEventTx(tx *sql.Tx, id int64) (*models.Event, error) {
 	
 	// Parse timestamp
 	event.Timestamp, _ = time.Parse(time.RFC3339, timestamp)
+	
+	// Handle nullable context field
+	if context.Valid {
+		event.Context = context.String
+	}
 	
 	return &event, nil
 }
@@ -265,6 +271,18 @@ func (r *Repository) CreateFalsePositiveTx(tx *sql.Tx, fp *models.FalsePositive)
 	}
 	
 	fp.ID = id
+	return nil
+}
+
+// DeleteFalsePositiveByEventTx deletes a false positive record by event ID within a transaction
+func (r *Repository) DeleteFalsePositiveByEventTx(tx *sql.Tx, eventID int64) error {
+	query := `DELETE FROM false_positives WHERE event_id = ?`
+	
+	_, err := tx.Exec(query, eventID)
+	if err != nil {
+		return fmt.Errorf("error deleting false positive record: %w", err)
+	}
+	
 	return nil
 }
 
@@ -423,6 +441,7 @@ func (r *Repository) GetEvent(id int64) (*models.Event, error) {
 	
 	var event models.Event
 	var timestamp string
+	var context sql.NullString
 	
 	err := row.Scan(
 		&event.ID,
@@ -430,7 +449,7 @@ func (r *Repository) GetEvent(id int64) (*models.Event, error) {
 		&event.EntityID,
 		&timestamp,
 		&event.RawData,
-		&event.Context,
+		&context,
 		&event.RiskPoints,
 		&event.IsFalsePositive,
 	)
@@ -444,6 +463,11 @@ func (r *Repository) GetEvent(id int64) (*models.Event, error) {
 	
 	// Parse timestamp
 	event.Timestamp, _ = time.Parse(time.RFC3339, timestamp)
+	
+	// Handle nullable context field
+	if context.Valid {
+		event.Context = context.String
+	}
 	
 	return &event, nil
 }

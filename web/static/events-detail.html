@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/events-detail.js"></script>
 </head>
 <body>
     <header>
@@ -30,124 +32,7 @@
     </header>
 
     <main class="container">
-        <div class="card" x-data="{ 
-            event: null,
-            detection: null,
-            riskObject: null,
-            dataSources: [],
-            loading: true,
-            
-            async init() {
-                await this.loadEvent();
-            },
-            
-            async loadEvent() {
-                const urlParams = new URLSearchParams(window.location.search);
-                const id = urlParams.get('id');
-                
-                if (!id) {
-                    alert('No event ID provided');
-                    window.location.href = 'events.html';
-                    return;
-                }
-                
-                try {
-                    // Fetch event details
-                    const eventResponse = await fetch(`/api/events/${id}`);
-                    if (eventResponse.ok) {
-                        this.event = await eventResponse.json();
-                        
-                        // Fetch related detection and data sources
-                        await this.fetchDetection(this.event.detection_id);
-                        await this.fetchRiskObject(this.event.entity_id);
-                        
-                        this.loading = false;
-                    } else {
-                        alert('Event not found');
-                        window.location.href = 'events.html';
-                    }
-                } catch (error) {
-                    console.error('Error loading event:', error);
-                    alert('Error loading event details');
-                    window.location.href = 'events.html';
-                }
-            },
-            
-            async fetchDetection(detectionId) {
-                try {
-                    const response = await fetch(`/api/detections/${detectionId}`);
-                    if (response.ok) {
-                        this.detection = await response.json();
-                        this.dataSources = this.detection.data_sources || [];
-                    }
-                } catch (error) {
-                    console.error('Error fetching detection:', error);
-                }
-            },
-            
-            async fetchRiskObject(entityId) {
-                try {
-                    const response = await fetch(`/api/risk/objects/${entityId}`);
-                    if (response.ok) {
-                        this.riskObject = await response.json();
-                    }
-                } catch (error) {
-                    console.error('Error fetching risk object:', error);
-                }
-            },
-            
-            formatTimestamp(timestamp) {
-                return new Date(timestamp).toLocaleString();
-            },
-            
-            getFalsePositiveClass(isFalsePositive) {
-                return isFalsePositive ? 'badge badge-warning' : 'badge badge-success';
-            },
-            
-            getFalsePositiveText(isFalsePositive) {
-                return isFalsePositive ? 'False Positive' : 'Valid';
-            },
-            
-            formatContext(context) {
-                if (!context) return 'No context available';
-                try {
-                    const parsed = JSON.parse(context);
-                    return JSON.stringify(parsed, null, 2);
-                } catch (e) {
-                    return context;
-                }
-            },
-            
-            async markAsFalsePositive() {
-                const reason = prompt('Please provide a reason for marking this as a false positive:');
-                if (!reason) return;
-                
-                const analystName = prompt('Please enter your name:');
-                if (!analystName) return;
-                
-                try {
-                    const response = await fetch(`/api/events/${this.event.id}/false-positive`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            reason: reason,
-                            analyst_name: analystName
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        await this.loadEvent(); // Refresh event data
-                    } else {
-                        alert('Error marking event as false positive');
-                    }
-                } catch (error) {
-                    console.error('Error marking false positive:', error);
-                    alert('Error marking event as false positive');
-                }
-            }
-        }" x-init="init()">
+        <div class="card" x-data="eventDetailData()" x-init="init()">
             <div class="card-header">
                 <h2 x-show="!loading" x-text="event ? `Event Details: ${event.id}` : 'Event Details'">Event Details</h2>
                 <h2 x-show="loading">Loading...</h2>
@@ -205,9 +90,12 @@
                 </div>
                 
                 <!-- Actions -->
-                <div class="event-actions" x-show="!event.is_false_positive">
-                    <button class="btn btn-warning" @click="markAsFalsePositive()">
+                <div class="event-actions">
+                    <button class="btn btn-warning" x-show="!event.is_false_positive" @click="markAsFalsePositive()">
                         Mark as False Positive
+                    </button>
+                    <button class="btn btn-primary" x-show="event.is_false_positive" @click="unmarkAsFalsePositive()">
+                        Unmark as False Positive
                     </button>
                 </div>
             </div>

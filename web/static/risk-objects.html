@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/risk-objects.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
@@ -24,172 +26,14 @@
                     <li><a href="datasources.html">Data Sources</a></li>
                     <li><a href="events.html">Events</a></li>
                     <li><a href="risk-objects.html" class="active">Risk Objects</a></li>
-                    <li><a href="/alerts">Risk Alerts</a></li>
+                    <li><a href="risk-alerts.html">Risk Alerts</a></li>
                 </ul>
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div class="card" x-data="{ 
-            riskObjects: [],
-            filteredRiskObjects: [],
-            entityTypeFilter: 'all',
-            riskThreshold: '',
-            searchTerm: '',
-            sortBy: 'score',
-            sortOrder: 'desc',
-            
-            async fetchRiskObjects() {
-                let url = '/api/risk/objects';
-                if (this.riskThreshold && this.riskThreshold !== '') {
-                    url += `?threshold=${this.riskThreshold}`;
-                }
-                
-                const response = await fetch(url);
-                if (response.ok) {
-                    this.riskObjects = await response.json() || [];
-                    this.applyFilters();
-                    this.renderRiskDistributionChart();
-                }
-            },
-            
-            applyFilters() {
-                this.filteredRiskObjects = this.riskObjects.filter(obj => {
-                    const matchesEntityType = this.entityTypeFilter === 'all' || obj.entity_type === this.entityTypeFilter;
-                    const matchesSearch = this.searchTerm === '' || 
-                        obj.entity_value.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                        obj.entity_type.toLowerCase().includes(this.searchTerm.toLowerCase());
-                    return matchesEntityType && matchesSearch;
-                });
-                
-                this.sortRiskObjects();
-            },
-            
-            sortRiskObjects() {
-                this.filteredRiskObjects.sort((a, b) => {
-                    let aVal, bVal;
-                    
-                    switch(this.sortBy) {
-                        case 'score':
-                            aVal = a.current_score;
-                            bVal = b.current_score;
-                            break;
-                        case 'entity':
-                            aVal = a.entity_value.toLowerCase();
-                            bVal = b.entity_value.toLowerCase();
-                            break;
-                        case 'type':
-                            aVal = a.entity_type.toLowerCase();
-                            bVal = b.entity_type.toLowerCase();
-                            break;
-                        case 'lastSeen':
-                            aVal = new Date(a.last_seen);
-                            bVal = new Date(b.last_seen);
-                            break;
-                        default:
-                            return 0;
-                    }
-                    
-                    if (this.sortOrder === 'asc') {
-                        return aVal > bVal ? 1 : -1;
-                    } else {
-                        return aVal < bVal ? 1 : -1;
-                    }
-                });
-            },
-            
-            formatTimestamp(timestamp) {
-                return new Date(timestamp).toLocaleString();
-            },
-            
-            getRiskLevelClass(score) {
-                if (score >= 80) return 'risk-critical';
-                if (score >= 60) return 'risk-high';
-                if (score >= 40) return 'risk-medium';
-                if (score >= 20) return 'risk-low';
-                return 'risk-minimal';
-            },
-            
-            getRiskLevelText(score) {
-                if (score >= 80) return 'Critical';
-                if (score >= 60) return 'High';
-                if (score >= 40) return 'Medium';
-                if (score >= 20) return 'Low';
-                return 'Minimal';
-            },
-            
-            getEntityTypeIcon(entityType) {
-                switch(entityType.toLowerCase()) {
-                    case 'user': return '👤';
-                    case 'host': return '💻';
-                    case 'ip': return '🌐';
-                    default: return '❓';
-                }
-            },
-            
-            renderRiskDistributionChart() {
-                if (this.riskObjects.length === 0) return;
-                
-                const ctx = document.getElementById('riskDistributionChart');
-                if (!ctx) return;
-                
-                // Destroy existing chart if it exists
-                if (this.chart) {
-                    this.chart.destroy();
-                }
-                
-                // Calculate risk distribution
-                const distribution = {
-                    'Critical (80+)': 0,
-                    'High (60-79)': 0,
-                    'Medium (40-59)': 0,
-                    'Low (20-39)': 0,
-                    'Minimal (0-19)': 0
-                };
-                
-                this.riskObjects.forEach(obj => {
-                    const score = obj.current_score;
-                    if (score >= 80) distribution['Critical (80+)']++;
-                    else if (score >= 60) distribution['High (60-79)']++;
-                    else if (score >= 40) distribution['Medium (40-59)']++;
-                    else if (score >= 20) distribution['Low (20-39)']++;
-                    else distribution['Minimal (0-19)']++;
-                });
-                
-                this.chart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(distribution),
-                        datasets: [{
-                            data: Object.values(distribution),
-                            backgroundColor: [
-                                '#dc3545', // Critical - Red
-                                '#fd7e14', // High - Orange
-                                '#ffc107', // Medium - Yellow
-                                '#28a745', // Low - Green
-                                '#6c757d'  // Minimal - Gray
-                            ],
-                            borderWidth: 2,
-                            borderColor: '#fff'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
-                            },
-                            title: {
-                                display: true,
-                                text: 'Risk Level Distribution'
-                            }
-                        }
-                    }
-                });
-            }
-        }" x-init="fetchRiskObjects()">
+        <div class="card" x-data="riskObjectsData()" x-init="init()">
             <div class="card-header">
                 <h2>Risk Objects</h2>
                 <div class="card-actions">
@@ -246,7 +90,8 @@
             
             <!-- Risk Objects List -->
             <div class="risk-objects-list">
-                <table>
+                <div class="table-container">
+                    <table>
                     <thead>
                         <tr>
                             <th>Entity</th>
@@ -267,10 +112,14 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="badge badge-secondary" x-text="riskObject.entity_type"></span>
+                                    <span class="badge" 
+                                          :class="`badge-${riskObject.entity_type}`"
+                                          x-text="riskObject.entity_type"></span>
                                 </td>
                                 <td>
-                                    <span class="risk-score" x-text="riskObject.current_score"></span>
+                                    <span class="risk-score" 
+                                          :class="getRiskLevelClass(riskObject.current_score)"
+                                          x-text="riskObject.current_score"></span>
                                 </td>
                                 <td>
                                     <span class="risk-level" 
@@ -287,7 +136,8 @@
                             <td colspan="6" class="text-center">No risk objects found</td>
                         </tr>
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
         </div>
     </main>
@@ -386,6 +236,21 @@
         
         .badge-secondary {
             background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .badge-user {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-host {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .badge-ip {
+            background-color: #e2e3f1;
             color: #383d41;
         }
         
