@@ -34,101 +34,96 @@
 
     <main class="container">
         <div class="card" x-data="riskObjectsData()" x-init="init()">
-            <div class="card-header">
+            <div class="card-header compact">
                 <h2>Risk Objects</h2>
                 <div class="card-actions">
-                    <button class="btn btn-primary" @click="fetchRiskObjects()">Refresh</button>
+                    <button class="btn btn-primary btn-sm" @click="fetchRiskObjects()">↻</button>
                 </div>
             </div>
             
             <!-- Risk Distribution Overview -->
-            <div class="risk-overview">
+            <div class="risk-overview compact">
                 <h3>Risk Distribution</h3>
-                <div class="chart-container" style="height: 300px;">
+                <div class="chart-container" style="height: 150px;">
                     <canvas id="riskDistributionChart"></canvas>
                 </div>
             </div>
             
             <!-- Filters -->
-            <div class="filters">
-                <div class="form-group">
-                    <label for="search">Search</label>
-                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search by entity value or type...">
-                </div>
+            <div class="filters compact">
                 <div class="filter-row">
                     <div class="form-group">
-                        <label for="entity-type-filter">Entity Type</label>
-                        <select id="entity-type-filter" x-model="entityTypeFilter" @change="applyFilters()">
+                        <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search..." class="compact-input">
+                    </div>
+                    <div class="form-group">
+                        <select id="entity-type-filter" x-model="entityTypeFilter" @change="applyFilters()" class="compact-select">
                             <option value="all">All Types</option>
                             <option value="user">Users</option>
                             <option value="host">Hosts</option>
-                            <option value="ip">IP Addresses</option>
+                            <option value="ip">IPs</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="risk-threshold">Risk Threshold</label>
-                        <input type="number" id="risk-threshold" x-model="riskThreshold" @change="fetchRiskObjects()" placeholder="Min risk score" min="0" max="100">
+                        <input type="number" id="risk-threshold" x-model="riskThreshold" @change="fetchRiskObjects()" placeholder="Min score" min="0" max="100" class="compact-input" style="width: 80px;">
                     </div>
                     <div class="form-group">
-                        <label for="sort-by">Sort By</label>
-                        <select id="sort-by" x-model="sortBy" @change="applyFilters()">
-                            <option value="score">Risk Score</option>
-                            <option value="entity">Entity Value</option>
-                            <option value="type">Entity Type</option>
+                        <select id="sort-by" x-model="sortBy" @change="applyFilters()" class="compact-select">
+                            <option value="score">Score</option>
+                            <option value="entity">Entity</option>
+                            <option value="type">Type</option>
                             <option value="lastSeen">Last Seen</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="sort-order">Order</label>
-                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()">
-                            <option value="desc">Descending</option>
-                            <option value="asc">Ascending</option>
+                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()" class="compact-select" style="width: 70px;">
+                            <option value="desc">↓</option>
+                            <option value="asc">↑</option>
                         </select>
                     </div>
                 </div>
             </div>
             
             <!-- Risk Objects List -->
-            <div class="risk-objects-list">
+            <div class="risk-objects-list compact">
                 <div class="table-container">
-                    <table>
+                    <table class="compact-table">
                     <thead>
                         <tr>
                             <th>Entity</th>
                             <th>Type</th>
-                            <th>Risk Score</th>
-                            <th>Risk Level</th>
+                            <th>Score</th>
+                            <th>Level</th>
                             <th>Last Seen</th>
-                            <th>Actions</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="riskObject in filteredRiskObjects" :key="riskObject.id">
                             <tr>
                                 <td>
-                                    <div class="entity-info">
+                                    <div class="entity-info compact">
                                         <span class="entity-icon" x-text="getEntityTypeIcon(riskObject.entity_type)"></span>
                                         <span class="entity-value" x-text="riskObject.entity_value"></span>
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="badge" 
+                                    <span class="badge compact" 
                                           :class="`badge-${riskObject.entity_type}`"
                                           x-text="riskObject.entity_type"></span>
                                 </td>
                                 <td>
-                                    <span class="risk-score" 
+                                    <span class="risk-score compact" 
                                           :class="getRiskLevelClass(riskObject.current_score)"
                                           x-text="riskObject.current_score"></span>
                                 </td>
                                 <td>
-                                    <span class="risk-level" 
+                                    <span class="risk-level compact" 
                                           :class="getRiskLevelClass(riskObject.current_score)"
                                           x-text="getRiskLevelText(riskObject.current_score)"></span>
                                 </td>
-                                <td x-text="formatTimestamp(riskObject.last_seen)"></td>
+                                <td x-text="formatTimestamp(riskObject.last_seen)" class="time-cell"></td>
                                 <td>
-                                    <a :href="`risk-objects-detail.html?id=${riskObject.id}`" class="btn btn-secondary btn-sm">View Details</a>
+                                    <a :href="`risk-objects-detail.html?id=${riskObject.id}`" class="btn-link">View</a>
                                 </td>
                             </tr>
                         </template>
@@ -149,53 +144,92 @@
     </footer>
 
     <style>
-        .card-header {
+        /* Compact header */
+        .card-header.compact {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .card-header.compact h2 {
+            font-size: 1.3rem;
+            margin: 0;
+        }
+        
+        .btn-sm {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.85rem;
+            min-width: 32px;
+        }
+        
+        /* Compact chart */
+        .risk-overview.compact {
             margin-bottom: 1rem;
         }
         
-        .risk-overview {
-            margin-bottom: 2rem;
+        .risk-overview.compact h3 {
+            font-size: 1rem;
+            margin: 0 0 0.5rem 0;
         }
         
-        .filters {
-            margin-bottom: 1.5rem;
+        /* Compact filters */
+        .filters.compact {
+            margin-bottom: 0.75rem;
         }
         
         .filter-row {
             display: flex;
-            gap: 1rem;
+            gap: 0.5rem;
+            align-items: center;
         }
         
         .filter-row .form-group {
+            flex: 0 0 auto;
+        }
+        
+        .filter-row .form-group:first-child {
             flex: 1;
         }
         
-        .entity-info {
+        .compact-input,
+        .compact-select {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.85rem;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        
+        .compact-select {
+            min-width: 80px;
+        }
+        
+        /* Compact entity info */
+        .entity-info.compact {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.3rem;
         }
         
         .entity-icon {
-            font-size: 1.2rem;
+            font-size: 0.9rem;
         }
         
         .entity-value {
-            font-weight: 600;
+            font-weight: 500;
+            font-size: 0.85rem;
         }
         
-        .risk-score {
+        /* Compact risk display */
+        .risk-score.compact {
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 0.9rem;
         }
         
-        .risk-level {
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
+        .risk-level.compact {
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
             font-weight: 600;
             text-transform: uppercase;
         }
@@ -225,11 +259,12 @@
             color: #383d41;
         }
         
-        .badge {
+        /* Compact badges */
+        .badge.compact {
             display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            padding: 0.15rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
             font-weight: 600;
             text-transform: uppercase;
         }
@@ -254,30 +289,57 @@
             color: #383d41;
         }
         
-        .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
+        /* Compact table */
+        .risk-objects-list.compact {
+            margin-top: 0.5rem;
+        }
+        
+        .compact-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        
+        .compact-table th {
+            background-color: #f8f9fa;
+            padding: 0.4rem 0.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.8rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .compact-table td {
+            padding: 0.35rem 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .compact-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .time-cell {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        /* Link button */
+        .btn-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.4rem;
+            cursor: pointer;
+        }
+        
+        .btn-link:hover {
+            text-decoration: underline;
         }
         
         .text-center {
             text-align: center;
-        }
-        
-        .risk-objects-list table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .risk-objects-list th,
-        .risk-objects-list td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }
-        
-        .risk-objects-list th {
-            background-color: #f8f9fa;
-            font-weight: 600;
+            color: #999;
+            font-style: italic;
         }
     </style>
 </body>

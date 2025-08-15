@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Event - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/events-add.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html" class="active">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="risk-alerts.html">Risk Alerts</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="card" x-data="eventAddData()" x-init="init()">
+            
+            <!-- Back Button -->
+            <div class="back-button">
+                <a href="events.html" class="btn">← Back to Events</a>
+            </div>
+            
+            <h2>Add New Event</h2>
+            
+            <!-- Event Creation Form -->
+            <form @submit.prevent="submitEvent()">
+                <div class="form-section">
+                    <h3>Event Information</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="detection">Detection *</label>
+                            <select id="detection" x-model="formData.detection_id" required>
+                                <option value="">Select a detection...</option>
+                                <template x-for="detection in detections" :key="detection.id">
+                                    <option :value="detection.id" x-text="`${detection.name} (ID: ${detection.id})`"></option>
+                                </template>
+                            </select>
+                            <small class="form-help">Choose the detection that triggered this event</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="risk-points">Risk Points *</label>
+                            <input type="number" id="risk-points" x-model="formData.risk_points" 
+                                   min="0" max="100" required placeholder="0-100">
+                            <small class="form-help">Risk score contribution (0-100)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="entity-type">Entity Type *</label>
+                            <select id="entity-type" x-model="formData.entity_type" required @change="clearEntitySelection()">
+                                <option value="">Select entity type...</option>
+                                <option value="user">User</option>
+                                <option value="host">Host</option>
+                                <option value="ip">IP Address</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="entity-value">
+                                <span x-show="formData.entity_type === 'user'">Username *</span>
+                                <span x-show="formData.entity_type === 'host'">Hostname *</span>
+                                <span x-show="formData.entity_type === 'ip'">IP Address *</span>
+                                <span x-show="!formData.entity_type">Entity Value *</span>
+                            </label>
+                            <div class="entity-input-group">
+                                <input type="text" id="entity-value" x-model="formData.entity_value" 
+                                       :placeholder="getEntityPlaceholder()" required
+                                       :disabled="!formData.entity_type"
+                                       @input="searchEntities()">
+                                <!-- Autocomplete dropdown for existing entities -->
+                                <div x-show="showEntitySuggestions && filteredEntities.length > 0" 
+                                     class="autocomplete-dropdown">
+                                    <template x-for="entity in filteredEntities" :key="entity.id">
+                                        <div class="autocomplete-item" 
+                                             @click="selectEntity(entity)"
+                                             x-text="entity.entity_value"></div>
+                                    </template>
+                                </div>
+                            </div>
+                            <small class="form-help">Enter the entity identifier or select from existing</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="timestamp">Event Timestamp</label>
+                        <input type="datetime-local" id="timestamp" x-model="formData.timestamp">
+                        <small class="form-help">Leave empty to use current time</small>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>Event Data</h3>
+                    
+                    <div class="form-group">
+                        <label for="raw-data">Raw Data (JSON)</label>
+                        <textarea id="raw-data" x-model="formData.raw_data" rows="6" 
+                                  placeholder='{"process": "cmd.exe", "action": "suspicious_execution", "command_line": "..."}'></textarea>
+                        <small class="form-help">Original event data in JSON format</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="context">Context (JSON)</label>
+                        <textarea id="context" x-model="formData.context" rows="4" 
+                                  placeholder='{"severity": "high", "source": "endpoint", "tags": ["lateral_movement"]}'></textarea>
+                        <small class="form-help">Additional context information in JSON format</small>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h3>Options</h3>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" x-model="formData.is_false_positive">
+                            <span>Mark as False Positive</span>
+                        </label>
+                        <small class="form-help">Check if this event is a known false positive</small>
+                    </div>
+                    
+                    <div x-show="formData.is_false_positive" class="form-group">
+                        <label for="fp-reason">False Positive Reason</label>
+                        <input type="text" id="fp-reason" x-model="formData.false_positive_reason" 
+                               placeholder="Explain why this is a false positive">
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" @click="resetForm()" class="btn btn-secondary">Reset</button>
+                    <button type="submit" class="btn btn-primary" :disabled="submitting">
+                        <span x-show="!submitting">Create Event</span>
+                        <span x-show="submitting">Creating...</span>
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Success/Error Messages -->
+            <div x-show="successMessage" class="alert alert-success" x-text="successMessage"></div>
+            <div x-show="errorMessage" class="alert alert-error" x-text="errorMessage"></div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <style>
+        .form-section {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .form-section h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 87, 255, 0.1);
+        }
+        
+        .form-group input:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+        
+        .form-help {
+            display: block;
+            font-size: 0.875rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+        
+        .entity-input-group {
+            position: relative;
+        }
+        
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .autocomplete-item {
+            padding: 0.5rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .autocomplete-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .back-button {
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</body>
+</html>

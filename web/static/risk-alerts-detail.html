@@ -45,54 +45,51 @@
             </div>
             
             <!-- Alert Details -->
-            <div x-show="!loading && alert" class="alert-details">
-                <div class="alert-header">
-                    <h2>Risk Alert #<span x-text="alert?.id || 'N/A'"></span></h2>
-                    <div class="alert-meta">
-                        <span x-text="getRiskLevelText(alert?.total_score)" 
-                              :class="'badge ' + getRiskLevelClass(alert?.total_score)"></span>
-                    </div>
+            <div x-show="!loading && alert" class="alert-details compact">
+                <div class="alert-header compact">
+                    <h2>Alert #<span x-text="alert?.id || 'N/A'"></span></h2>
+                    <span x-text="alert ? getRiskLevelText(alert.total_score) : ''" 
+                          :class="alert ? 'badge ' + getRiskLevelClass(alert.total_score) : ''"></span>
                 </div>
                 
                 <!-- Alert Information -->
-                <div class="alert-info">
-                    <h3>Alert Information</h3>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <label>Alert ID:</label>
+                <div class="alert-info compact">
+                    <div class="info-row">
+                        <div class="info-item inline">
+                            <label>ID:</label>
                             <span x-text="alert?.id || 'N/A'"></span>
                         </div>
-                        <div class="info-item">
-                            <label>Risk Score:</label>
+                        <div class="info-item inline">
+                            <label>Score:</label>
                             <span x-text="alert?.total_score || '0'"></span>
                         </div>
-                        <div class="info-item">
-                            <label>Risk Level:</label>
-                            <span x-text="getRiskLevelText(alert?.total_score)" 
-                                  :class="'badge ' + getRiskLevelClass(alert?.total_score)"></span>
+                        <div class="info-item inline">
+                            <label>Level:</label>
+                            <span x-text="alert ? getRiskLevelText(alert.total_score) : 'Loading...'" 
+                                  :class="alert ? 'badge-inline ' + getRiskLevelClass(alert.total_score) : ''"></span>
                         </div>
-                        <div class="info-item">
-                            <label>Triggered At:</label>
+                        <div class="info-item inline">
+                            <label>Time:</label>
                             <span x-text="formatTimestamp(alert?.triggered_at)"></span>
                         </div>
-                        <div class="info-item">
+                        <div class="info-item inline">
                             <label>Status:</label>
                             <span x-text="alert?.status || 'New'"></span>
                         </div>
-                        <div class="info-item">
+                        <div class="info-item inline">
                             <label>Owner:</label>
                             <span x-text="alert?.owner || 'Unassigned'"></span>
                         </div>
                     </div>
                     <div class="info-item" x-show="alert?.notes">
                         <label>Notes:</label>
-                        <p x-text="alert?.notes"></p>
+                        <span class="notes-text" x-text="alert?.notes"></span>
                     </div>
                 </div>
                 
                 <!-- Alert Management -->
-                <div class="alert-management">
-                    <h3>Alert Management</h3>
+                <div class="alert-management compact">
+                    <h3>Management</h3>
                     <form @submit.prevent="updateAlert()">
                         <div class="form-row">
                             <div class="form-group">
@@ -108,36 +105,38 @@
                             </div>
                             <div class="form-group">
                                 <label for="alert-owner">Owner</label>
-                                <input type="text" id="alert-owner" x-model="formData.owner" placeholder="Assign to analyst">
+                                <input type="text" id="alert-owner" x-model="formData.owner" placeholder="Assign analyst">
+                            </div>
+                            <div class="form-group">
+                                <button type="submit" class="btn btn-primary btn-sm">Update</button>
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="alert-notes">Notes</label>
-                            <textarea id="alert-notes" x-model="formData.notes" rows="4" placeholder="Add notes about this alert..."></textarea>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">Update Alert</button>
+                            <textarea id="alert-notes" x-model="formData.notes" rows="2" placeholder="Add notes..."></textarea>
                         </div>
                     </form>
                 </div>
                 
                 <!-- Entity Information -->
-                <div x-show="riskObject" class="entity-info">
-                    <h3>Entity Information</h3>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <label>Entity Type:</label>
+                <div x-show="riskObject" class="entity-info compact">
+                    <h3>Entity</h3>
+                    <div class="info-row">
+                        <div class="info-item inline">
+                            <label>Type:</label>
                             <span x-text="riskObject?.entity_type || 'Unknown'"></span>
                         </div>
-                        <div class="info-item">
-                            <label>Entity Value:</label>
-                            <span x-text="riskObject?.entity_value || 'Unknown'"></span>
+                        <div class="info-item inline">
+                            <label>Value:</label>
+                            <a :href="`risk-objects-detail.html?id=${riskObject?.id}`" 
+                               class="entity-link"
+                               x-text="riskObject?.entity_value || 'Unknown'"></a>
                         </div>
-                        <div class="info-item">
-                            <label>Current Score:</label>
+                        <div class="info-item inline">
+                            <label>Score:</label>
                             <span x-text="riskObject?.current_score || '0'"></span>
                         </div>
-                        <div class="info-item">
+                        <div class="info-item inline">
                             <label>Last Seen:</label>
                             <span x-text="formatTimestamp(riskObject?.last_seen)"></span>
                         </div>
@@ -145,20 +144,20 @@
                 </div>
                 
                 <!-- Contributing Events -->
-                <div class="contributing-events">
-                    <h3>Contributing Events</h3>
-                    <div x-show="!events || events.length === 0" class="empty-state">
-                        No events found for this alert.
+                <div class="contributing-events compact">
+                    <h3>Events (<span x-text="events?.length || 0"></span>)</h3>
+                    <div x-show="!events || events.length === 0" class="empty-state compact">
+                        No events found.
                     </div>
-                    <div x-show="events && events.length > 0" class="events-list">
-                        <table>
+                    <div x-show="events && events.length > 0" class="events-list compact">
+                        <table class="compact-table">
                             <thead>
                                 <tr>
-                                    <th>Event ID</th>
+                                    <th>ID</th>
                                     <th>Detection</th>
-                                    <th>Risk Points</th>
-                                    <th>Timestamp</th>
-                                    <th>Actions</th>
+                                    <th>Points</th>
+                                    <th>Time</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -169,7 +168,7 @@
                                         <td x-text="event?.risk_points || '0'"></td>
                                         <td x-text="formatTimestamp(event?.timestamp)"></td>
                                         <td>
-                                            <a :href="`events-detail.html?id=${event?.id}`" class="btn btn-secondary btn-sm">View Event</a>
+                                            <a :href="`events-detail.html?id=${event?.id}`" class="btn-link">View</a>
                                         </td>
                                     </tr>
                                 </template>
@@ -179,28 +178,27 @@
                 </div>
                 
                 <!-- Event Details Expandable -->
-                <div class="event-details-section">
-                    <h3>Event Details</h3>
-                    <template x-for="event in ((events || []).slice(0, 5))" :key="event.id">
-                        <div class="event-detail-card">
-                            <div class="event-header">
-                                <h4>Event #<span x-text="event?.id || 'N/A'"></span> - <span x-text="getDetectionName(event?.detection_id)"></span></h4>
+                <div class="event-details-section compact">
+                    <h3>Details (Top 3)</h3>
+                    <template x-for="event in ((events || []).slice(0, 3))" :key="event.id">
+                        <div class="event-detail-card compact">
+                            <div class="event-header compact">
+                                <strong>#<span x-text="event?.id"></span> - <span x-text="getDetectionName(event?.detection_id)"></span></strong>
                                 <span class="event-timestamp" x-text="formatTimestamp(event?.timestamp)"></span>
                             </div>
-                            <div class="event-content">
-                                <div class="event-raw-data" x-show="event?.raw_data">
-                                    <strong>Raw Data:</strong>
-                                    <p x-text="event?.raw_data"></p>
+                            <div class="event-content compact">
+                                <div class="event-raw-data compact" x-show="event?.raw_data">
+                                    <span class="data-label">Data:</span>
+                                    <span class="data-value" x-text="event?.raw_data"></span>
                                 </div>
-                                <div class="event-context" x-show="event?.context">
-                                    <strong>Context:</strong>
+                                <div class="event-context compact" x-show="event?.context">
                                     <template x-if="parseContext(event?.context)">
-                                        <div class="context-grid">
-                                            <template x-for="[key, value] in Object.entries(parseContext(event?.context) || {})" :key="key">
-                                                <div class="context-item">
-                                                    <span class="context-key" x-text="key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>:
+                                        <div class="context-inline">
+                                            <template x-for="[key, value] in Object.entries(parseContext(event?.context) || {}).slice(0, 3)" :key="key">
+                                                <span class="context-item-inline">
+                                                    <span class="context-key" x-text="key"></span>:
                                                     <span class="context-value" x-text="Array.isArray(value) ? value.join(', ') : value"></span>
-                                                </div>
+                                                </span>
                                             </template>
                                         </div>
                                     </template>
@@ -208,8 +206,8 @@
                             </div>
                         </div>
                     </template>
-                    <div x-show="events && events.length > 5" class="more-events">
-                        <p><strong x-text="(events?.length || 0) - 5"></strong> more events contributed to this alert. <a href="events.html">View all events</a></p>
+                    <div x-show="events && events.length > 3" class="more-events compact">
+                        <span><strong x-text="(events?.length || 0) - 3"></strong> more events. <a href="events.html">View all</a></span>
                     </div>
                 </div>
             </div>
@@ -231,70 +229,86 @@
 
     <style>
         .back-button {
-            margin-bottom: 1.5rem;
+            margin-bottom: 0.75rem;
         }
         
         .loading-state, .error-state {
             text-align: center;
-            padding: 2rem;
+            padding: 1rem;
         }
         
-        .alert-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .alert-meta {
-            display: flex;
-            gap: 1rem;
-        }
-        
-        .alert-info, .entity-info, .contributing-events, .event-details-section {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .alert-info h3, .entity-info h3, .contributing-events h3, .event-details-section h3 {
-            margin-top: 0;
-            margin-bottom: 1rem;
+        /* Compact layout styles */
+        .compact h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
             color: var(--primary-color);
         }
         
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-        
-        .info-item {
+        .alert-header.compact {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e0e0e0;
         }
         
+        .alert-header.compact h2 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+        
+        .alert-info.compact, .entity-info.compact, .contributing-events.compact, 
+        .event-details-section.compact, .alert-management.compact {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .info-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.2rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .info-item.inline {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .info-item.inline label,
         .info-item label {
             font-weight: 600;
             color: #333;
-            margin-bottom: 0.25rem;
+            margin: 0;
+            font-size: 0.85rem;
         }
         
+        .info-item.inline span,
         .info-item span {
             color: #666;
+            font-size: 0.85rem;
         }
         
-        .badge {
+        .notes-text {
             display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            background: white;
+            padding: 0.3rem 0.5rem;
+            border-radius: 3px;
+            border: 1px solid #dee2e6;
+            font-size: 0.85rem;
+        }
+        
+        .badge, .badge-inline {
+            display: inline-block;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
-            width: fit-content;
         }
         
         .risk-low {
@@ -317,93 +331,151 @@
             color: #0c5460;
         }
         
-        .empty-state {
-            padding: 1rem;
-            background-color: white;
-            border-radius: 4px;
-            text-align: center;
-            color: #666;
+        /* Compact form styles */
+        .form-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
         }
         
-        .events-list table {
+        .form-group {
+            flex: 1;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.2rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            font-size: 0.85rem;
+            padding: 0.3rem 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Compact table styles */
+        .empty-state.compact {
+            padding: 0.5rem;
+            background-color: white;
+            border-radius: 3px;
+            text-align: center;
+            color: #999;
+            font-size: 0.85rem;
+        }
+        
+        .events-list.compact table.compact-table {
             width: 100%;
             border-collapse: collapse;
             background-color: white;
-            border-radius: 4px;
-            overflow: hidden;
+            border-radius: 3px;
+            font-size: 0.85rem;
         }
         
-        .events-list th,
-        .events-list td {
-            padding: 0.75rem;
+        .compact-table th,
+        .compact-table td {
+            padding: 0.4rem 0.5rem;
             text-align: left;
             border-bottom: 1px solid #dee2e6;
         }
         
-        .events-list th {
+        .compact-table th {
             background-color: #f8f9fa;
             font-weight: 600;
+            font-size: 0.8rem;
         }
         
-        .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
+        .btn-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.85rem;
         }
         
-        .event-detail-card {
+        .btn-link:hover {
+            text-decoration: underline;
+        }
+        
+        .entity-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.85rem;
+        }
+        
+        .entity-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Compact event detail cards */
+        .event-detail-card.compact {
             background-color: white;
-            border-radius: 4px;
-            padding: 1rem;
-            margin-bottom: 1rem;
+            border-radius: 3px;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
             border: 1px solid #dee2e6;
         }
         
-        .event-header {
+        .event-header.compact {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.3rem;
+            font-size: 0.85rem;
         }
         
-        .event-header h4 {
-            margin: 0;
+        .event-header.compact strong {
             color: #333;
         }
         
         .event-timestamp {
+            color: #999;
+            font-size: 0.75rem;
+        }
+        
+        .event-content.compact {
+            margin-top: 0.3rem;
+        }
+        
+        .event-raw-data.compact,
+        .event-context.compact {
+            margin-bottom: 0.3rem;
+            font-size: 0.8rem;
+        }
+        
+        .data-label {
+            font-weight: 600;
+            color: #333;
+            margin-right: 0.3rem;
+        }
+        
+        .data-value {
             color: #666;
-            font-size: 0.875rem;
-        }
-        
-        .event-content {
-            margin-top: 1rem;
-        }
-        
-        .event-raw-data, .event-context {
-            margin-bottom: 1rem;
-        }
-        
-        .event-raw-data p {
-            background-color: #f8f9fa;
-            padding: 0.75rem;
-            border-radius: 4px;
-            margin: 0.5rem 0 0 0;
             font-family: monospace;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
+            background: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 2px;
         }
         
-        .context-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0.5rem;
-            margin-top: 0.5rem;
+        .context-inline {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 0.3rem;
         }
         
-        .context-item {
+        .context-item-inline {
             background-color: #f8f9fa;
-            padding: 0.5rem;
-            border-radius: 4px;
-            font-size: 0.875rem;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
         }
         
         .context-key {
@@ -415,12 +487,13 @@
             color: #666;
         }
         
-        .more-events {
+        .more-events.compact {
             text-align: center;
-            padding: 1rem;
+            padding: 0.5rem;
             background-color: white;
-            border-radius: 4px;
+            border-radius: 3px;
             border: 1px solid #dee2e6;
+            font-size: 0.85rem;
         }
     </style>
 </body>

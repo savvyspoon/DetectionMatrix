@@ -34,52 +34,53 @@
 
     <main class="container">
         <div class="card" x-data="dataSourcesData()" x-init="init()">
-            <div class="card-header">
+            <div class="card-header compact">
                 <h2>Data Sources</h2>
                 <div class="card-actions">
-                    <button class="btn btn-primary" @click="showForm = true" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">Add Data Source</button>
+                    <button class="btn btn-primary btn-sm" @click="showForm = true" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">+ Add</button>
                 </div>
             </div>
             
             <!-- Utilization Overview -->
-            <div class="utilization-overview" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
-                <h3>Data Source Utilization</h3>
-                <div class="chart-container" style="height: 300px;">
+            <div class="utilization-overview compact" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
+                <h3>Utilization</h3>
+                <div class="chart-container" style="height: 150px;">
                     <canvas id="utilizationChart"></canvas>
                 </div>
             </div>
             
             <!-- Filters -->
-            <div class="filters" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
-                <div class="form-group">
-                    <label for="search">Search</label>
-                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search data sources...">
+            <div class="filters compact" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
+                <div class="filter-row">
+                    <div class="form-group">
+                        <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search..." class="compact-input">
+                    </div>
                 </div>
             </div>
             
             <!-- Data Source List -->
-            <div class="datasource-list" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
+            <div class="datasource-list compact" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
                 <div class="table-container">
-                    <table>
+                    <table class="compact-table">
                     <thead>
                         <tr>
                             <th>Name</th>
                             <th>Description</th>
-                            <th>Log Format</th>
-                            <th>Detections</th>
-                            <th>Actions</th>
+                            <th>Format</th>
+                            <th>Det.</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="dataSource in filteredDataSources" :key="dataSource.id">
                             <tr>
-                                <td x-text="dataSource.name"></td>
-                                <td x-text="dataSource.description || 'No description'"></td>
-                                <td x-text="dataSource.log_format || 'Not specified'"></td>
-                                <td x-text="utilization[dataSource.name] || 0"></td>
-                                <td>
-                                    <button class="btn btn-secondary" @click="selectDataSource(dataSource.id)">Edit</button>
-                                    <button class="btn btn-danger" @click="deleteDataSource(dataSource.id)">Delete</button>
+                                <td x-text="dataSource.name" class="name-cell"></td>
+                                <td x-text="dataSource.description || '-'" class="desc-cell"></td>
+                                <td x-text="dataSource.log_format || '-'" class="format-cell"></td>
+                                <td x-text="utilization[dataSource.name] || 0" class="count-cell"></td>
+                                <td class="actions-cell">
+                                    <a @click="selectDataSource(dataSource.id)" class="btn-link">Edit</a>
+                                    <a @click="deleteDataSource(dataSource.id)" class="btn-link delete">Del</a>
                                 </td>
                             </tr>
                         </template>
@@ -92,74 +93,74 @@
             </div>
             
             <!-- New Data Source Form -->
-            <div class="datasource-form" x-show="showForm">
-                <h3>Add New Data Source</h3>
+            <div class="datasource-form compact" x-show="showForm">
+                <h3>Add Data Source</h3>
                 <form @submit.prevent="createDataSource()">
-                    <div class="form-group">
+                    <div class="form-group compact">
                         <label for="name">Name</label>
-                        <input type="text" id="name" x-model="newDataSource.name" required>
-                        <small>Example: sysmon, cloudtrail, windows_event_logs</small>
+                        <input type="text" id="name" x-model="newDataSource.name" required class="compact-input">
+                        <small>e.g., sysmon, cloudtrail</small>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group compact">
                         <label for="description">Description</label>
-                        <textarea id="description" x-model="newDataSource.description"></textarea>
+                        <textarea id="description" x-model="newDataSource.description" rows="2" class="compact-textarea"></textarea>
                     </div>
-                    <div class="form-group">
-                        <label for="log-format">Log Format</label>
-                        <input type="text" id="log-format" x-model="newDataSource.log_format">
-                        <small>Example: JSON, XML, CEF, LEEF</small>
+                    <div class="form-group compact">
+                        <label for="log-format">Format</label>
+                        <input type="text" id="log-format" x-model="newDataSource.log_format" class="compact-input">
+                        <small>e.g., JSON, XML</small>
                     </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-success">Save</button>
-                        <button type="button" class="btn" @click="showForm = false">Cancel</button>
+                    <div class="form-actions compact">
+                        <button type="submit" class="btn btn-success btn-sm">Save</button>
+                        <button type="button" class="btn btn-sm" @click="showForm = false">Cancel</button>
                     </div>
                 </form>
             </div>
             
             <!-- Data Source Details -->
-            <div class="datasource-details" x-show="selectedDataSource && selectedDataSource.id">
+            <div class="datasource-details compact" x-show="selectedDataSource && selectedDataSource.id">
                 <h3>Edit Data Source</h3>
                 <form @submit.prevent="updateDataSource()">
-                    <div class="form-group">
+                    <div class="form-group compact">
                         <label for="edit-name">Name</label>
-                        <input type="text" id="edit-name" x-model="selectedDataSource?.name" :value="selectedDataSource?.name || ''" required>
+                        <input type="text" id="edit-name" x-model="selectedDataSource?.name" :value="selectedDataSource?.name || ''" required class="compact-input">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group compact">
                         <label for="edit-description">Description</label>
-                        <textarea id="edit-description" x-model="selectedDataSource?.description" :value="selectedDataSource?.description || ''"></textarea>
+                        <textarea id="edit-description" x-model="selectedDataSource?.description" :value="selectedDataSource?.description || ''" rows="2" class="compact-textarea"></textarea>
                     </div>
-                    <div class="form-group">
-                        <label for="edit-log-format">Log Format</label>
-                        <input type="text" id="edit-log-format" x-model="selectedDataSource?.log_format" :value="selectedDataSource?.log_format || ''">
+                    <div class="form-group compact">
+                        <label for="edit-log-format">Format</label>
+                        <input type="text" id="edit-log-format" x-model="selectedDataSource?.log_format" :value="selectedDataSource?.log_format || ''" class="compact-input">
                     </div>
                     
                     <!-- Associated Detections -->
-                    <div class="related-data">
-                        <h4>Associated Detections</h4>
-                        <div x-show="associatedDetections.length === 0" class="empty-state">
-                            No detections associated with this data source.
+                    <div class="related-data compact">
+                        <h4>Detections</h4>
+                        <div x-show="associatedDetections.length === 0" class="empty-state compact">
+                            No associated detections
                         </div>
                         <div class="table-container" x-show="associatedDetections.length > 0">
-                            <table>
+                            <table class="compact-table">
                             <thead>
                                 <tr>
                                     <th>Name</th>
                                     <th>Status</th>
-                                    <th>Severity</th>
-                                    <th>Risk Points</th>
+                                    <th>Sev</th>
+                                    <th>Pts</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <template x-for="detection in associatedDetections" :key="detection.id">
                                     <tr>
-                                        <td x-text="detection.name"></td>
+                                        <td x-text="detection.name" class="name-cell"></td>
                                         <td>
-                                            <span x-text="detection.status" :class="`status status-${detection.status}`"></span>
+                                            <span x-text="detection.status" :class="`badge compact status-${detection.status}`"></span>
                                         </td>
                                         <td>
-                                            <span x-text="detection.severity" :class="`badge badge-${detection.severity === 'low' ? 'secondary' : detection.severity === 'medium' ? 'warning' : 'danger'}`"></span>
+                                            <span x-text="detection.severity.substr(0,3).toUpperCase()" :class="`badge compact severity-${detection.severity}`"></span>
                                         </td>
-                                        <td x-text="detection.risk_points"></td>
+                                        <td x-text="detection.risk_points" class="count-cell"></td>
                                     </tr>
                                 </template>
                             </tbody>
@@ -167,13 +168,13 @@
                     </div>
                     
                     <!-- Associated MITRE Techniques -->
-                    <div class="related-data">
-                        <h4>Associated MITRE Techniques</h4>
-                        <div x-show="associatedTechniques.length === 0" class="empty-state">
-                            No MITRE techniques associated with this data source.
+                    <div class="related-data compact">
+                        <h4>MITRE Techniques</h4>
+                        <div x-show="associatedTechniques.length === 0" class="empty-state compact">
+                            No associated techniques
                         </div>
                         <div class="table-container" x-show="associatedTechniques.length > 0">
-                            <table>
+                            <table class="compact-table">
                             <thead>
                                 <tr>
                                     <th>ID</th>
@@ -185,11 +186,11 @@
                                 <template x-for="technique in associatedTechniques" :key="technique.id">
                                     <tr>
                                         <td>
-                                            <span class="technique-id" x-text="technique.id"></span>
+                                            <span class="technique-id compact" x-text="technique.id"></span>
                                         </td>
-                                        <td x-text="technique.name"></td>
+                                        <td x-text="technique.name" class="name-cell"></td>
                                         <td>
-                                            <span class="badge badge-primary" x-text="technique.tactic"></span>
+                                            <span class="badge compact badge-primary" x-text="technique.tactic.substr(0,10)"></span>
                                         </td>
                                     </tr>
                                 </template>
@@ -198,9 +199,9 @@
                         </div>
                     </div>
                     
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-success">Update</button>
-                        <button type="button" class="btn" @click="closeModal()">Back</button>
+                    <div class="form-actions compact">
+                        <button type="submit" class="btn btn-success btn-sm">Update</button>
+                        <button type="button" class="btn btn-sm" @click="closeModal()">Back</button>
                     </div>
                 </form>
             </div>
@@ -214,45 +215,223 @@
     </footer>
 
     <style>
-        .card-header {
+        /* Compact header */
+        .card-header.compact {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
         
-        .utilization-overview {
-            margin-bottom: 2rem;
+        .card-header.compact h2 {
+            font-size: 1.3rem;
+            margin: 0;
         }
         
-        .filters {
-            margin-bottom: 1.5rem;
+        .btn-sm {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.85rem;
         }
         
-        .form-actions {
+        /* Compact chart */
+        .utilization-overview.compact {
+            margin-bottom: 0.75rem;
+        }
+        
+        .utilization-overview.compact h3 {
+            font-size: 1rem;
+            margin: 0 0 0.5rem 0;
+        }
+        
+        /* Compact filters */
+        .filters.compact {
+            margin-bottom: 0.75rem;
+        }
+        
+        .filter-row {
             display: flex;
             gap: 0.5rem;
-            margin-top: 1rem;
         }
         
-        .related-data {
-            margin-top: 1.5rem;
+        .filter-row .form-group {
+            flex: 1;
         }
         
-        .related-data h4 {
+        .compact-input,
+        .compact-select,
+        .compact-textarea {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.85rem;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            width: 100%;
+        }
+        
+        .compact-textarea {
+            resize: vertical;
+        }
+        
+        /* Compact table */
+        .datasource-list.compact {
+            margin-top: 0.5rem;
+        }
+        
+        .compact-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        
+        .compact-table th {
+            background-color: #f8f9fa;
+            padding: 0.4rem 0.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.8rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .compact-table td {
+            padding: 0.35rem 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .compact-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        /* Cell styles */
+        .name-cell {
+            font-weight: 500;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .desc-cell {
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #666;
+            font-size: 0.8rem;
+        }
+        
+        .format-cell {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .count-cell {
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .actions-cell {
+            white-space: nowrap;
+        }
+        
+        /* Compact forms */
+        .datasource-form.compact h3,
+        .datasource-details.compact h3 {
+            font-size: 1.1rem;
+            margin: 0 0 0.75rem 0;
+        }
+        
+        .form-group.compact {
             margin-bottom: 0.5rem;
+        }
+        
+        .form-group.compact label {
+            display: block;
+            margin-bottom: 0.2rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .form-group.compact small {
+            display: block;
+            margin-top: 0.15rem;
+            color: #666;
+            font-size: 0.7rem;
+        }
+        
+        .form-actions.compact {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.75rem;
+        }
+        
+        /* Related data sections */
+        .related-data.compact {
+            margin-top: 0.75rem;
+        }
+        
+        .related-data.compact h4 {
+            margin-bottom: 0.3rem;
+            color: var(--primary-color);
+            font-size: 0.95rem;
+        }
+        
+        .empty-state.compact {
+            padding: 0.5rem;
+            color: #999;
+            font-style: italic;
+            font-size: 0.8rem;
+        }
+        
+        /* Compact badges */
+        .badge.compact {
+            display: inline-block;
+            padding: 0.15rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .technique-id.compact {
+            font-family: monospace;
+            font-size: 0.75rem;
             color: var(--primary-color);
         }
         
-        small {
-            display: block;
-            margin-top: 0.25rem;
-            color: #666;
-            font-size: 0.85rem;
+        /* Status colors */
+        .status-idea { background-color: #e3f2fd; color: #0d47a1; }
+        .status-draft { background-color: #e8f5e9; color: #1b5e20; }
+        .status-test { background-color: #fff3e0; color: #e65100; }
+        .status-production { background-color: #e8eaf6; color: #303f9f; }
+        .status-retired { background-color: #fafafa; color: #616161; }
+        
+        /* Severity colors */
+        .severity-low { background-color: #e8f5e9; color: #2e7d32; }
+        .severity-medium { background-color: #fff3e0; color: #f57c00; }
+        .severity-high { background-color: #fbe9e7; color: #d84315; }
+        .severity-critical { background-color: #ffebee; color: #c62828; }
+        
+        /* Link buttons */
+        .btn-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.4rem;
+            margin-right: 0.3rem;
+            cursor: pointer;
+        }
+        
+        .btn-link:hover {
+            text-decoration: underline;
+        }
+        
+        .btn-link.delete {
+            color: #dc3545;
         }
         
         .text-center {
             text-align: center;
+            color: #999;
+            font-style: italic;
         }
     </style>
 </body>

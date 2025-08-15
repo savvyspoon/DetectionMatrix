@@ -194,35 +194,33 @@
             </div>
             
             <!-- Detection Information Display -->
-            <div x-show="!loading && detection" class="detection-info">
-                <h3>Detection Information</h3>
-                <div class="info-grid">
-                    <div class="info-item">
+            <div x-show="!loading && detection" class="detection-info compact">
+                <div class="info-row">
+                    <div class="info-item inline">
                         <label>Owner:</label>
                         <span x-text="detection.owner || 'Not assigned'"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Risk Object:</label>
                         <span x-text="detection.risk_object || 'Not specified'"></span>
                     </div>
-                    <div class="info-item">
-                        <label>Event Count (Last 30 Days):</label>
+                    <div class="info-item inline">
+                        <label>Events (30d):</label>
                         <span x-text="eventCount"></span>
                     </div>
-                    <div class="info-item">
-                        <label>False Positives (Last 30 Days):</label>
+                    <div class="info-item inline">
+                        <label>FPs (30d):</label>
                         <span x-text="falsePositiveCount"></span>
                     </div>
                 </div>
                 <div class="info-item" x-show="detection.testing_description">
-                    <label>Testing Description:</label>
-                    <p x-text="detection.testing_description"></p>
+                    <label>Testing:</label>
+                    <span class="testing-desc" x-text="detection.testing_description"></span>
                 </div>
             </div>
 
             <!-- Detection Details Form -->
-            <div x-show="!loading && detection" class="detection-details">
-                <h3>Edit Detection</h3>
+            <div x-show="!loading && detection" class="detection-details compact">
                 <form @submit.prevent="updateDetection()">
                     <div class="form-group">
                         <label for="edit-name">Name</label>
@@ -230,11 +228,11 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-description">Description</label>
-                        <textarea id="edit-description" x-model="detection.description" required></textarea>
+                        <textarea id="edit-description" x-model="detection.description" required rows="2"></textarea>
                     </div>
                     <div class="form-group">
                         <label for="edit-query">Query</label>
-                        <textarea id="edit-query" x-model="detection.query" placeholder="Enter your detection query logic here..." rows="4"></textarea>
+                        <textarea id="edit-query" x-model="detection.query" placeholder="Enter your detection query logic here..." rows="3"></textarea>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -256,117 +254,99 @@
                                 <option value="critical">Critical</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="edit-risk-points">Risk Points</label>
+                            <input type="number" id="edit-risk-points" x-model.number="detection.risk_points" min="0" max="100">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="edit-risk-points">Risk Points</label>
-                        <input type="number" id="edit-risk-points" x-model.number="detection.risk_points" min="0" max="100">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-owner">Owner</label>
+                            <input type="text" id="edit-owner" x-model="detection.owner" placeholder="Detection owner/analyst">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-risk-object">Risk Object</label>
+                            <select id="edit-risk-object" x-model="detection.risk_object">
+                                <option value="">-- Select --</option>
+                                <option value="IP">IP</option>
+                                <option value="Host">Host</option>
+                                <option value="User">User</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="edit-playbook-link">Playbook Link</label>
                         <input type="text" id="edit-playbook-link" x-model="detection.playbook_link">
                     </div>
                     <div class="form-group">
-                        <label for="edit-owner">Owner</label>
-                        <input type="text" id="edit-owner" x-model="detection.owner" placeholder="Detection owner/analyst name">
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-risk-object">Risk Object</label>
-                        <select id="edit-risk-object" x-model="detection.risk_object">
-                            <option value="">-- Select Risk Object Type --</option>
-                            <option value="IP">IP</option>
-                            <option value="Host">Host</option>
-                            <option value="User">User</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label for="edit-testing-description">Testing Description</label>
-                        <textarea id="edit-testing-description" x-model="detection.testing_description" placeholder="Describe how this detection was tested and validated"></textarea>
+                        <textarea id="edit-testing-description" x-model="detection.testing_description" placeholder="Testing and validation notes" rows="2"></textarea>
                     </div>
                     
                     <!-- MITRE Techniques -->
-                    <div class="related-data">
+                    <div class="related-data compact">
                         <h4>MITRE Techniques</h4>
                         <div class="mitre-techniques">
                             <template x-if="detection.mitre_techniques && detection.mitre_techniques.length > 0">
-                                <ul class="technique-list">
+                                <ul class="technique-list compact">
                                     <template x-for="technique in detection.mitre_techniques" :key="technique.id">
                                         <li>
-                                            <span x-text="`${technique.id} - ${technique.name} (${technique.tactic})`"></span>
-                                            <button type="button" class="btn btn-sm btn-danger" 
-                                                @click="removeMitreTechnique(detection.id, technique.id)">
-                                                Remove
-                                            </button>
+                                            <span x-text="`${technique.id} - ${technique.name}`" class="technique-text"></span>
+                                            <button type="button" class="btn-xs btn-danger" 
+                                                @click="removeMitreTechnique(detection.id, technique.id)">×</button>
                                         </li>
                                     </template>
                                 </ul>
                             </template>
-                            <div x-show="!detection.mitre_techniques || detection.mitre_techniques.length === 0">
-                                No MITRE techniques associated
+                            <div x-show="!detection.mitre_techniques || detection.mitre_techniques.length === 0" class="no-items">
+                                No MITRE techniques
                             </div>
                             
                             <!-- Add MITRE Technique -->
-                            <div class="add-mitre-technique">
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <select x-model="selectedMitreTechnique" class="form-control">
-                                            <option value="">-- Select a MITRE Technique --</option>
-                                            <template x-for="technique in mitreTechniques" :key="technique.id">
-                                                <option :value="technique.id" x-text="`${technique.id} - ${technique.name} (${technique.tactic})`"></option>
-                                            </template>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <button type="button" class="btn btn-primary" 
-                                            @click="addMitreTechnique(detection.id, selectedMitreTechnique)"
-                                            :disabled="!selectedMitreTechnique">
-                                            Add MITRE Technique
-                                        </button>
-                                    </div>
-                                </div>
+                            <div class="add-item compact">
+                                <select x-model="selectedMitreTechnique" class="form-control compact">
+                                    <option value="">-- Select MITRE Technique --</option>
+                                    <template x-for="technique in mitreTechniques" :key="technique.id">
+                                        <option :value="technique.id" x-text="`${technique.id} - ${technique.name}`"></option>
+                                    </template>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm" 
+                                    @click="addMitreTechnique(detection.id, selectedMitreTechnique)"
+                                    :disabled="!selectedMitreTechnique">Add</button>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Data Sources -->
-                    <div class="related-data">
+                    <div class="related-data compact">
                         <h4>Data Sources</h4>
                         <div class="data-sources">
                             <template x-if="detection.data_sources && detection.data_sources.length > 0">
-                                <ul class="source-list">
+                                <ul class="source-list compact">
                                     <template x-for="source in detection.data_sources" :key="source.id">
                                         <li>
-                                            <span x-text="`${source.name} - ${source.description || 'No description'}`"></span>
-                                            <button type="button" class="btn btn-sm btn-danger" 
-                                                @click="removeDataSource(detection.id, source.id)">
-                                                Remove
-                                            </button>
+                                            <span x-text="source.name" class="source-text"></span>
+                                            <button type="button" class="btn-xs btn-danger" 
+                                                @click="removeDataSource(detection.id, source.id)">×</button>
                                         </li>
                                     </template>
                                 </ul>
                             </template>
-                            <div x-show="!detection.data_sources || detection.data_sources.length === 0">
-                                No data sources associated
+                            <div x-show="!detection.data_sources || detection.data_sources.length === 0" class="no-items">
+                                No data sources
                             </div>
                             
                             <!-- Add Data Source -->
-                            <div class="add-data-source">
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <select x-model="selectedDataSource" class="form-control">
-                                            <option value="">-- Select a Data Source --</option>
-                                            <template x-for="source in dataSources" :key="source.id">
-                                                <option :value="source.id" x-text="`${source.name} - ${source.description || 'No description'}`"></option>
-                                            </template>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <button type="button" class="btn btn-primary" 
-                                            @click="addDataSource(detection.id, selectedDataSource)"
-                                            :disabled="!selectedDataSource">
-                                            Add Data Source
-                                        </button>
-                                    </div>
-                                </div>
+                            <div class="add-item compact">
+                                <select x-model="selectedDataSource" class="form-control compact">
+                                    <option value="">-- Select Data Source --</option>
+                                    <template x-for="source in dataSources" :key="source.id">
+                                        <option :value="source.id" x-text="source.name"></option>
+                                    </template>
+                                </select>
+                                <button type="button" class="btn btn-primary btn-sm" 
+                                    @click="addDataSource(detection.id, selectedDataSource)"
+                                    :disabled="!selectedDataSource">Add</button>
                             </div>
                         </div>
                     </div>
@@ -391,116 +371,170 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
         
         .loading-state {
             text-align: center;
-            padding: 2rem;
+            padding: 1rem;
             color: #666;
         }
         
         .form-row {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
         }
         
         .form-row .form-group {
             flex: 1;
         }
         
+        .form-group {
+            margin-bottom: 0.75rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            font-size: 0.9rem;
+        }
+        
         .form-actions {
             display: flex;
             gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        
+        /* Compact styles */
+        .compact h3 {
+            margin: 0.5rem 0;
+            font-size: 1.1rem;
+        }
+        
+        .related-data.compact {
             margin-top: 1rem;
         }
         
-        .related-data {
-            margin-top: 1.5rem;
-        }
-        
-        .related-data h4 {
-            margin-bottom: 0.5rem;
+        .related-data.compact h4 {
+            margin-bottom: 0.3rem;
             color: var(--primary-color);
+            font-size: 1rem;
         }
         
-        .technique-list, .source-list {
+        .technique-list.compact, .source-list.compact {
             list-style: none;
             padding: 0;
+            margin: 0.3rem 0;
         }
         
-        .technique-list li, .source-list li {
-            padding: 0.5rem;
+        .technique-list.compact li, .source-list.compact li {
+            padding: 0.3rem 0.5rem;
             background-color: var(--light-bg);
-            margin-bottom: 0.5rem;
-            border-radius: 4px;
+            margin-bottom: 0.25rem;
+            border-radius: 3px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 0.9rem;
         }
         
-        .source-list .btn-sm, .technique-list .btn-sm {
+        .btn-xs {
+            padding: 0.1rem 0.4rem;
+            font-size: 0.85rem;
+            border: none;
+            background: #dc3545;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+            min-width: 20px;
+        }
+        
+        .btn-xs:hover {
+            background: #c82333;
+        }
+        
+        .btn-sm {
             padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
+            font-size: 0.85rem;
         }
         
-        /* MITRE Technique Styles */
-        .add-mitre-technique {
-            margin-top: 1rem;
-            padding-top: 1rem;
+        /* Add item styles */
+        .add-item.compact {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
             border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
         }
         
-        /* Data Source Styles */
-        .add-data-source {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-color);
+        .form-control.compact {
+            flex: 1;
+            padding: 0.3rem;
+            font-size: 0.9rem;
+        }
+        
+        .no-items {
+            color: #999;
+            font-size: 0.9rem;
+            font-style: italic;
         }
         
         /* Detection Information Display Styles */
-        .detection-info {
+        .detection-info.compact {
             background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .detection-info h3 {
-            margin-top: 0;
-            margin-bottom: 1rem;
-            color: var(--primary-color);
-        }
-        
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
+            border-radius: 6px;
+            padding: 0.75rem;
             margin-bottom: 1rem;
         }
         
-        .info-item {
+        .info-row {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .info-item.inline {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .info-item.inline label {
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        
+        .info-item.inline span {
+            color: #666;
+            font-size: 0.9rem;
         }
         
         .info-item label {
             font-weight: 600;
             color: #333;
-            margin-bottom: 0.25rem;
+            margin-right: 0.3rem;
+            font-size: 0.9rem;
         }
         
-        .info-item span, .info-item p {
+        .testing-desc {
             color: #666;
-            margin: 0;
-        }
-        
-        .info-item p {
+            font-size: 0.9rem;
+            display: inline-block;
             background-color: white;
-            padding: 0.75rem;
-            border-radius: 4px;
+            padding: 0.3rem 0.5rem;
+            border-radius: 3px;
             border: 1px solid #dee2e6;
-            margin-top: 0.5rem;
         }
     </style>
 </body>

@@ -47,30 +47,30 @@
             </div>
             
             <!-- Event Information -->
-            <div x-show="!loading && event" class="event-info">
+            <div x-show="!loading && event" class="event-info compact">
                 <h3>Event Information</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Event ID:</label>
+                <div class="info-row">
+                    <div class="info-item inline">
+                        <label>ID:</label>
                         <span x-text="event.id"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Detection:</label>
                         <span x-text="detection ? detection.name : `Detection ${event.detection_id}`"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Entity:</label>
                         <span x-text="riskObject ? `${riskObject.entity_value} (${riskObject.entity_type})` : `Entity ${event.entity_id}`"></span>
                     </div>
-                    <div class="info-item">
-                        <label>Timestamp:</label>
+                    <div class="info-item inline">
+                        <label>Time:</label>
                         <span x-text="formatTimestamp(event.timestamp)"></span>
                     </div>
-                    <div class="info-item">
-                        <label>Risk Points:</label>
+                    <div class="info-item inline">
+                        <label>Points:</label>
                         <span x-text="event.risk_points"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Status:</label>
                         <span x-text="getFalsePositiveText(event.is_false_positive)" 
                               :class="getFalsePositiveClass(event.is_false_positive)"></span>
@@ -78,89 +78,90 @@
                 </div>
                 
                 <!-- Raw Data -->
-                <div class="info-section" x-show="event.raw_data">
+                <div class="info-section compact" x-show="event.raw_data">
                     <label>Raw Data:</label>
-                    <pre class="raw-data" x-text="event.raw_data"></pre>
+                    <pre class="raw-data compact" x-text="event.raw_data"></pre>
                 </div>
                 
                 <!-- Context Information -->
-                <div class="info-section">
-                    <label>Context Information:</label>
-                    <pre class="context-data" x-text="formatContext(event.context)"></pre>
+                <div class="info-section compact">
+                    <label>Context:</label>
+                    <pre class="context-data compact" x-text="formatContext(event.context)"></pre>
                 </div>
                 
                 <!-- Actions -->
-                <div class="event-actions">
-                    <button class="btn btn-warning" x-show="!event.is_false_positive" @click="markAsFalsePositive()">
-                        Mark as False Positive
+                <div class="event-actions compact">
+                    <button class="btn btn-sm btn-warning" x-show="!event.is_false_positive" @click="markAsFalsePositive()">
+                        Mark FP
                     </button>
-                    <button class="btn btn-primary" x-show="event.is_false_positive" @click="unmarkAsFalsePositive()">
-                        Unmark as False Positive
+                    <button class="btn btn-sm btn-primary" x-show="event.is_false_positive" @click="unmarkAsFalsePositive()">
+                        Unmark FP
                     </button>
                 </div>
             </div>
             
             <!-- Detection Information -->
-            <div x-show="!loading && detection" class="detection-info">
-                <h3>Detection Information</h3>
-                <div class="info-grid">
-                    <div class="info-item">
+            <div x-show="!loading && detection" class="detection-info compact">
+                <h3>Detection</h3>
+                <div class="info-row">
+                    <div class="info-item inline">
                         <label>Name:</label>
                         <span x-text="detection.name"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Status:</label>
                         <span x-text="detection.status" :class="`status status-${detection.status}`"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Severity:</label>
-                        <span x-text="detection.severity" :class="`badge badge-${detection.severity === 'low' ? 'secondary' : detection.severity === 'medium' ? 'warning' : 'danger'}`"></span>
+                        <span x-text="detection.severity" :class="`badge-compact badge-${detection.severity === 'low' ? 'secondary' : detection.severity === 'medium' ? 'warning' : 'danger'}`"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Owner:</label>
-                        <span x-text="detection.owner || 'Not assigned'"></span>
+                        <span x-text="detection.owner || 'Unassigned'"></span>
                     </div>
                 </div>
                 
-                <div class="info-section" x-show="detection.description">
-                    <label>Description:</label>
-                    <p x-text="detection.description"></p>
+                <div class="info-section compact" x-show="detection.description">
+                    <span class="desc-text" x-text="detection.description"></span>
                 </div>
             </div>
             
             <!-- Data Sources -->
-            <div x-show="!loading && dataSources.length > 0" class="data-sources-info">
-                <h3>Data Sources</h3>
-                <div class="data-sources-list">
+            <div x-show="!loading && dataSources.length > 0" class="data-sources-info compact">
+                <h3>Sources</h3>
+                <div class="data-sources-list compact">
                     <template x-for="dataSource in dataSources" :key="dataSource.id">
-                        <div class="data-source-item">
-                            <div class="data-source-name" x-text="dataSource.name"></div>
-                            <div class="data-source-description" x-text="dataSource.description || 'No description'"></div>
-                            <div class="data-source-format" x-show="dataSource.log_format">
-                                Format: <span x-text="dataSource.log_format"></span>
-                            </div>
+                        <div class="data-source-item compact">
+                            <strong x-text="dataSource.name"></strong>
+                            <span class="source-desc" x-text="dataSource.description || 'No description'"></span>
+                            <span class="source-format" x-show="dataSource.log_format">
+                                (<span x-text="dataSource.log_format"></span>)
+                            </span>
                         </div>
                     </template>
                 </div>
             </div>
             
             <!-- Risk Object Information -->
-            <div x-show="!loading && riskObject" class="risk-object-info">
-                <h3>Risk Object Information</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Entity Type:</label>
+            <div x-show="!loading && riskObject" class="risk-object-info compact">
+                <h3>Risk Object</h3>
+                <div class="info-row">
+                    <div class="info-item inline">
+                        <label>Type:</label>
                         <span x-text="riskObject.entity_type"></span>
                     </div>
-                    <div class="info-item">
-                        <label>Entity Value:</label>
-                        <span x-text="riskObject.entity_value"></span>
+                    <div class="info-item inline">
+                        <label>Value:</label>
+                        <a :href="`risk-objects-detail.html?id=${riskObject.id}`" 
+                           class="entity-link"
+                           x-text="riskObject.entity_value"></a>
                     </div>
-                    <div class="info-item">
-                        <label>Current Risk Score:</label>
+                    <div class="info-item inline">
+                        <label>Score:</label>
                         <span x-text="riskObject.current_score"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Last Seen:</label>
                         <span x-text="formatTimestamp(riskObject.last_seen)"></span>
                     </div>
@@ -180,143 +181,178 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
         
         .loading-state {
             text-align: center;
-            padding: 2rem;
+            padding: 1rem;
             color: #666;
         }
         
-        .event-info, .detection-info, .data-sources-info, .risk-object-info {
+        /* Compact styles */
+        .event-info.compact, .detection-info.compact, 
+        .data-sources-info.compact, .risk-object-info.compact {
             background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
         }
         
-        .event-info h3, .detection-info h3, .data-sources-info h3, .risk-object-info h3 {
-            margin-top: 0;
-            margin-bottom: 1rem;
+        .compact h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
             color: var(--primary-color);
         }
         
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-        
-        .info-item {
+        .info-row {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
+            gap: 1.2rem;
+            margin-bottom: 0.3rem;
         }
         
-        .info-item label {
+        .info-item.inline {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .info-item.inline label {
             font-weight: 600;
             color: #333;
-            margin-bottom: 0.25rem;
-        }
-        
-        .info-item span, .info-item p {
-            color: #666;
             margin: 0;
+            font-size: 0.85rem;
         }
         
-        .info-section {
-            margin-top: 1rem;
+        .info-item.inline span,
+        .info-item.inline a {
+            color: #666;
+            font-size: 0.85rem;
         }
         
-        .info-section label {
+        .info-section.compact {
+            margin-top: 0.5rem;
+        }
+        
+        .info-section.compact label {
             font-weight: 600;
             color: #333;
-            display: block;
-            margin-bottom: 0.5rem;
+            display: inline-block;
+            margin-bottom: 0.25rem;
+            font-size: 0.85rem;
         }
         
-        .raw-data, .context-data {
+        .raw-data.compact, .context-data.compact {
             background-color: white;
-            padding: 1rem;
-            border-radius: 4px;
+            padding: 0.5rem;
+            border-radius: 3px;
             border: 1px solid #dee2e6;
             font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
+            font-size: 0.75rem;
             white-space: pre-wrap;
             word-wrap: break-word;
-            max-height: 300px;
+            max-height: 150px;
             overflow-y: auto;
         }
         
-        .event-actions {
-            margin-top: 1.5rem;
-            padding-top: 1rem;
+        .event-actions.compact {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
             border-top: 1px solid #dee2e6;
         }
         
-        .data-sources-list {
-            display: grid;
-            gap: 1rem;
-        }
-        
-        .data-source-item {
-            background-color: white;
-            padding: 1rem;
-            border-radius: 4px;
-            border: 1px solid #dee2e6;
-        }
-        
-        .data-source-name {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 0.25rem;
-        }
-        
-        .data-source-description {
-            color: #666;
-            margin-bottom: 0.25rem;
-        }
-        
-        .data-source-format {
-            font-size: 0.9rem;
-            color: #888;
-        }
-        
-        .badge {
-            display: inline-block;
+        .btn-sm {
             padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Compact data sources */
+        .data-sources-list.compact {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        
+        .data-source-item.compact {
+            background-color: white;
+            padding: 0.4rem 0.5rem;
+            border-radius: 3px;
+            border: 1px solid #dee2e6;
+            font-size: 0.85rem;
+        }
+        
+        .data-source-item.compact strong {
+            color: #333;
+            margin-right: 0.5rem;
+        }
+        
+        .source-desc {
+            color: #666;
+            margin-right: 0.3rem;
+        }
+        
+        .source-format {
+            color: #999;
+            font-size: 0.8rem;
+        }
+        
+        /* Description text */
+        .desc-text {
+            color: #666;
+            font-size: 0.85rem;
+            background: white;
+            padding: 0.3rem 0.5rem;
+            border-radius: 3px;
+            border: 1px solid #dee2e6;
+            display: inline-block;
+        }
+        
+        /* Entity link */
+        .entity-link {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .entity-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Compact badges */
+        .badge-compact {
+            display: inline-block;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
         }
         
-        .badge-success {
+        .badge-success, .badge-compact.badge-success {
             background-color: #d4edda;
             color: #155724;
         }
         
-        .badge-warning {
+        .badge-warning, .badge-compact.badge-warning {
             background-color: #fff3cd;
             color: #856404;
         }
         
-        .badge-secondary {
+        .badge-secondary, .badge-compact.badge-secondary {
             background-color: #e2e3e5;
             color: #383d41;
         }
         
-        .badge-danger {
+        .badge-danger, .badge-compact.badge-danger {
             background-color: #f8d7da;
             color: #721c24;
         }
         
         .status {
             display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 12px;
+            padding: 0.15rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
             font-weight: 600;
         }
         

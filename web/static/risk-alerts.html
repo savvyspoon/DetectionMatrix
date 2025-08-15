@@ -33,43 +33,40 @@
 
     <main class="container">
         <div class="card" x-data="riskAlertsData()" x-init="init()">
-            <div class="card-header">
+            <div class="card-header compact">
                 <h2>Risk Alerts</h2>
-                <div class="alert-stats">
+                <div class="alert-stats compact">
                     <span class="stat-item" x-show="isPaginated">
-                        <strong x-text="totalCount"></strong> total alerts
+                        <strong x-text="totalCount"></strong> total
                     </span>
                     <span class="stat-item" x-show="!isPaginated">
                         <strong x-text="filteredAlerts.length"></strong> alerts
                     </span>
                     <span class="stat-item" x-show="isPaginated && totalPages > 1">
-                        Page <strong x-text="currentPage"></strong> of <strong x-text="totalPages"></strong>
+                        Pg <strong x-text="currentPage"></strong>/<strong x-text="totalPages"></strong>
                     </span>
                 </div>
             </div>
             
             <!-- Filters and Search -->
-            <div class="filters">
-                <div class="form-group" x-show="!isPaginated">
-                    <label for="search">Search Alerts</label>
-                    <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search by entity, score, or status...">
-                </div>
+            <div class="filters compact">
                 <div class="filter-row">
+                    <div class="form-group" x-show="!isPaginated">
+                        <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search..." class="compact-input">
+                    </div>
                     <div class="form-group">
-                        <label for="status-filter">Filter by Status</label>
-                        <select id="status-filter" x-model="statusFilter" @change="currentPage = 1; fetchAlerts()">
-                            <option value="">All Statuses</option>
+                        <select id="status-filter" x-model="statusFilter" @change="currentPage = 1; fetchAlerts()" class="compact-select">
+                            <option value="">All Status</option>
                             <option value="New">New</option>
                             <option value="Triage">Triage</option>
-                            <option value="Investigation">Investigation</option>
+                            <option value="Investigation">Investigating</option>
                             <option value="On Hold">On Hold</option>
                             <option value="Incident">Incident</option>
                             <option value="Closed">Closed</option>
                         </select>
                     </div>
                     <div class="form-group" x-show="isPaginated">
-                        <label for="page-size">Page Size</label>
-                        <select id="page-size" x-model="pageSize" @change="changePageSize()">
+                        <select id="page-size" x-model="pageSize" @change="changePageSize()" class="compact-select" style="width: 60px;">
                             <option value="10">10</option>
                             <option value="20">20</option>
                             <option value="50">50</option>
@@ -77,59 +74,57 @@
                         </select>
                     </div>
                     <div class="form-group" x-show="!isPaginated">
-                        <label for="sort-by">Sort By</label>
-                        <select id="sort-by" x-model="sortBy" @change="applyFilters()">
-                            <option value="triggered_at">Triggered Date</option>
-                            <option value="total_score">Risk Score</option>
+                        <select id="sort-by" x-model="sortBy" @change="applyFilters()" class="compact-select">
+                            <option value="triggered_at">Date</option>
+                            <option value="total_score">Score</option>
                             <option value="entity">Entity</option>
                             <option value="status">Status</option>
                         </select>
                     </div>
                     <div class="form-group" x-show="!isPaginated">
-                        <label for="sort-order">Order</label>
-                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()">
-                            <option value="desc">Descending</option>
-                            <option value="asc">Ascending</option>
+                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()" class="compact-select" style="width: 60px;">
+                            <option value="desc">↓</option>
+                            <option value="asc">↑</option>
                         </select>
                     </div>
                 </div>
             </div>
             
             <!-- Alerts List -->
-            <div class="alerts-list">
+            <div class="alerts-list compact">
                 <div class="table-container">
-                    <table>
+                    <table class="compact-table">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>Entity</th>
-                            <th>Risk Score</th>
-                            <th>Risk Level</th>
+                            <th>Score</th>
+                            <th>Level</th>
                             <th>Status</th>
-                            <th>Triggered At</th>
-                            <th>Actions</th>
+                            <th>Time</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="alert in filteredAlerts" :key="alert.id">
                             <tr>
-                                <td x-text="alert.id"></td>
-                                <td x-text="getRiskObjectValue(alert.entity_id)"></td>
+                                <td x-text="alert.id" class="id-cell"></td>
+                                <td x-text="getRiskObjectValue(alert.entity_id)" class="entity-cell"></td>
                                 <td>
                                     <span x-text="alert.total_score" 
-                                          :class="'risk-score ' + getRiskLevelClass(alert.total_score)"></span>
+                                          class="risk-score compact"></span>
                                 </td>
                                 <td>
                                     <span x-text="getRiskLevelText(alert.total_score)" 
-                                          :class="'badge ' + getRiskLevelClass(alert.total_score)"></span>
+                                          :class="'badge compact ' + getRiskLevelClass(alert.total_score)"></span>
                                 </td>
                                 <td>
                                     <span x-text="alert.status" 
-                                          :class="'badge ' + getStatusClass(alert.status)"></span>
+                                          :class="'badge compact ' + getStatusClass(alert.status)"></span>
                                 </td>
-                                <td x-text="formatTimestamp(alert.triggered_at)"></td>
+                                <td x-text="formatTimestamp(alert.triggered_at)" class="time-cell"></td>
                                 <td>
-                                    <a :href="`risk-alerts-detail.html?id=${alert.id}`" class="btn btn-secondary btn-sm">View</a>
+                                    <a :href="`risk-alerts-detail.html?id=${alert.id}`" class="btn-link">View</a>
                                 </td>
                             </tr>
                         </template>
@@ -142,20 +137,20 @@
             </div>
             
             <!-- Pagination Controls -->
-            <div class="pagination-controls" x-show="isPaginated && totalPages > 1">
-                <div class="pagination-info">
-                    <span x-text="`Showing ${Math.min((currentPage - 1) * pageSize + 1, totalCount)} to ${Math.min(currentPage * pageSize, totalCount)} of ${totalCount} alerts`"></span>
+            <div class="pagination-controls compact" x-show="isPaginated && totalPages > 1">
+                <div class="pagination-info compact">
+                    <span x-text="`${Math.min((currentPage - 1) * pageSize + 1, totalCount)}-${Math.min(currentPage * pageSize, totalCount)} of ${totalCount}`"></span>
                 </div>
-                <div class="pagination-buttons">
-                    <button @click="previousPage()" :disabled="currentPage === 1" class="btn btn-secondary">← Previous</button>
+                <div class="pagination-buttons compact">
+                    <button @click="previousPage()" :disabled="currentPage === 1" class="btn-page">‹</button>
                     
                     <template x-for="page in getPageNumbers()" :key="page">
                         <button @click="goToPage(page)" 
-                                :class="{ 'btn': true, 'btn-primary': page === currentPage, 'btn-secondary': page !== currentPage }"
+                                :class="page === currentPage ? 'btn-page active' : 'btn-page'"
                                 x-text="page"></button>
                     </template>
                     
-                    <button @click="nextPage()" :disabled="currentPage === totalPages" class="btn btn-secondary">Next →</button>
+                    <button @click="nextPage()" :disabled="currentPage === totalPages" class="btn-page">›</button>
                 </div>
             </div>
         </div>
@@ -168,68 +163,119 @@
     </footer>
 
     <style>
-        .card-header {
+        /* Compact header */
+        .card-header.compact {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
         
-        .alert-stats {
+        .card-header.compact h2 {
+            font-size: 1.3rem;
+            margin: 0;
+        }
+        
+        .alert-stats.compact {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
         }
         
         .stat-item {
             color: #666;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
         
-        .filters {
-            margin-bottom: 1.5rem;
+        /* Compact filters */
+        .filters.compact {
+            margin-bottom: 0.75rem;
         }
         
         .filter-row {
             display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
+            gap: 0.5rem;
+            align-items: center;
         }
         
         .filter-row .form-group {
+            flex: 0 0 auto;
+        }
+        
+        .filter-row .form-group:first-child {
             flex: 1;
         }
         
-        .text-center {
-            text-align: center;
+        .compact-input,
+        .compact-select {
+            padding: 0.3rem 0.5rem;
+            font-size: 0.85rem;
+            border: 1px solid #ddd;
+            border-radius: 3px;
         }
         
-        .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
+        .compact-input {
+            width: 100%;
         }
         
-        .alerts-list table {
+        .compact-select {
+            min-width: 90px;
+        }
+        
+        /* Compact table */
+        .alerts-list.compact {
+            margin-top: 0.5rem;
+        }
+        
+        .compact-table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 0.85rem;
         }
         
-        .alerts-list th,
-        .alerts-list td {
-            padding: 0.75rem;
+        .compact-table th {
+            background-color: #f8f9fa;
+            padding: 0.4rem 0.5rem;
             text-align: left;
+            font-weight: 600;
+            font-size: 0.8rem;
             border-bottom: 1px solid #dee2e6;
         }
         
-        .alerts-list th {
-            background-color: #f8f9fa;
-            font-weight: 600;
+        .compact-table td {
+            padding: 0.35rem 0.5rem;
+            border-bottom: 1px solid #eee;
         }
         
-        .badge {
+        .compact-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        /* Cell styles */
+        .id-cell {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .entity-cell {
+            font-weight: 500;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .time-cell {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        /* Compact badges */
+        .badge.compact {
             display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            padding: 0.15rem 0.3rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
             font-weight: 600;
             text-transform: uppercase;
         }
@@ -259,11 +305,9 @@
             color: #721c24;
         }
         
-        .risk-score {
+        .risk-score.compact {
             font-weight: bold;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
         
         .status-new {
@@ -301,34 +345,71 @@
             color: #616161;
         }
         
-        /* Pagination Styles */
-        .pagination-controls {
+        /* Link button */
+        .btn-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.4rem;
+            cursor: pointer;
+        }
+        
+        .btn-link:hover {
+            text-decoration: underline;
+        }
+        
+        .text-center {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+        }
+        
+        /* Compact Pagination */
+        .pagination-controls.compact {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 1.5rem;
-            padding-top: 1rem;
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
             border-top: 1px solid #dee2e6;
         }
         
-        .pagination-info {
+        .pagination-info.compact {
             color: #666;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
         
-        .pagination-buttons {
+        .pagination-buttons.compact {
             display: flex;
-            gap: 0.5rem;
+            gap: 0.25rem;
         }
         
-        .pagination-buttons .btn {
-            padding: 0.5rem 0.75rem;
-            font-size: 0.9rem;
-            min-width: 40px;
+        .btn-page {
+            min-width: 28px;
+            height: 28px;
+            padding: 0.2rem 0.4rem;
+            font-size: 0.8rem;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         
-        .pagination-buttons .btn:disabled {
-            opacity: 0.5;
+        .btn-page:hover:not(:disabled) {
+            background-color: #f8f9fa;
+        }
+        
+        .btn-page.active {
+            background-color: var(--primary-color, #3498db);
+            color: white;
+            border-color: var(--primary-color, #3498db);
+        }
+        
+        .btn-page:disabled {
+            opacity: 0.4;
             cursor: not-allowed;
         }
         

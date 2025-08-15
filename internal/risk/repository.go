@@ -857,17 +857,26 @@ func (r *Repository) GetEventsForAlert(alertID int64) ([]*models.Event, error) {
 	// First get the alert to find the entity and timestamp
 	var alert models.RiskAlert
 	var triggeredAt string
+	var notes, owner sql.NullString
 	
 	err := r.db.QueryRow(
 		`SELECT id, entity_id, triggered_at, total_score, status, notes, owner FROM risk_alerts WHERE id = ?`,
 		alertID,
-	).Scan(&alert.ID, &alert.EntityID, &triggeredAt, &alert.TotalScore, &alert.Status, &alert.Notes, &alert.Owner)
+	).Scan(&alert.ID, &alert.EntityID, &triggeredAt, &alert.TotalScore, &alert.Status, &notes, &owner)
 	
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("risk alert not found: %d", alertID)
 		}
 		return nil, fmt.Errorf("error scanning risk alert: %w", err)
+	}
+	
+	// Handle nullable fields
+	if notes.Valid {
+		alert.Notes = notes.String
+	}
+	if owner.Valid {
+		alert.Owner = owner.String
 	}
 	
 	alert.TriggeredAt, _ = time.Parse(time.RFC3339, triggeredAt)

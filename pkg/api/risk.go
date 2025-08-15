@@ -26,16 +26,58 @@ func NewRiskHandler(engine *risk.Engine, repo *risk.Repository) *RiskHandler {
 
 // ProcessEvent handles POST /api/events
 func (h *RiskHandler) ProcessEvent(w http.ResponseWriter, r *http.Request) {
-	// Parse request body
-	var event models.Event
-	if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+	// Parse request body with custom structure to handle entity_type and entity_value
+	var requestData struct {
+		DetectionID     int64     `json:"detection_id"`
+		EntityID        int64     `json:"entity_id,omitempty"`
+		EntityType      string    `json:"entity_type,omitempty"`
+		EntityValue     string    `json:"entity_value,omitempty"`
+		Timestamp       time.Time `json:"timestamp,omitempty"`
+		RawData         string    `json:"raw_data,omitempty"`
+		Context         string    `json:"context,omitempty"`
+		RiskPoints      int       `json:"risk_points"`
+		IsFalsePositive bool      `json:"is_false_positive"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
+	// Build event model
+	event := models.Event{
+		DetectionID:     requestData.DetectionID,
+		EntityID:        requestData.EntityID,
+		RawData:         requestData.RawData,
+		Context:         requestData.Context,
+		RiskPoints:      requestData.RiskPoints,
+		IsFalsePositive: requestData.IsFalsePositive,
+		Timestamp:       requestData.Timestamp,
+	}
+	
 	// Set timestamp if not provided
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now()
+	}
+	
+	// If entity_type and entity_value are provided, create RiskObject
+	if requestData.EntityType != "" && requestData.EntityValue != "" {
+		event.RiskObject = &models.RiskObject{
+			EntityType:  models.EntityType(requestData.EntityType),
+			EntityValue: requestData.EntityValue,
+		}
+	} else if requestData.EntityID > 0 {
+		// If entity_id is provided, fetch the risk object
+		riskObj, err := h.repo.GetRiskObject(requestData.EntityID)
+		if err != nil {
+			http.Error(w, "Invalid entity_id", http.StatusBadRequest)
+			return
+		}
+		event.EntityID = requestData.EntityID
+		event.RiskObject = riskObj
+	} else {
+		http.Error(w, "Either entity_id or entity_type/entity_value must be provided", http.StatusBadRequest)
+		return
 	}
 
 	// Process event
