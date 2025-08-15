@@ -3,12 +3,16 @@ package api
 import (
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"riskmatrix/internal/datasource"
 	"riskmatrix/internal/detection"
 	"riskmatrix/internal/mitre"
 	"riskmatrix/internal/risk"
+	"riskmatrix/pkg/cache"
 	"riskmatrix/pkg/database"
+	"riskmatrix/pkg/middleware"
 )
 
 // Server represents the API server
@@ -20,6 +24,9 @@ type Server struct {
 	riskRepo       *risk.Repository
 	riskEngine     *risk.Engine
 	router         *http.ServeMux
+	handler        http.Handler
+	cache          *cache.Cache
+	preparedStmts  *database.PreparedStatements
 }
 
 // NewServer creates a new API server
@@ -33,6 +40,12 @@ func NewServer(db *database.DB) *Server {
 	// Create risk engine
 	riskEngine := risk.NewEngine(db, risk.DefaultConfig())
 
+	// Create cache with 5 minute TTL
+	apiCache := cache.New(5 * time.Minute)
+
+	// Create prepared statements
+	preparedStmts := db.PreparedStatements()
+
 	// Create server
 	server := &Server{
 		db:             db,
@@ -42,10 +55,15 @@ func NewServer(db *database.DB) *Server {
 		riskRepo:       riskRepo,
 		riskEngine:     riskEngine,
 		router:         http.NewServeMux(),
+		cache:          apiCache,
+		preparedStmts:  preparedStmts,
 	}
 
 	// Set up routes
 	server.setupRoutes()
+
+	// Set up middleware chain
+	server.setupMiddleware()
 
 	return server
 }
@@ -122,15 +140,73 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /api/risk/high", riskHandler.GetHighRiskEntities)
 }
 
-// ServeHTTP implements the http.Handler interface
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.router.ServeHTTP(w, r)
+// setupMiddleware sets up the middleware chain
+func (s *Server) setupMiddleware() {
+	// Get auth credentials from environment or use defaults
+	authEnabled := os.Getenv("AUTH_ENABLED") == "true"
+	authUser := os.Getenv("AUTH_USER")
+	authPass := os.Getenv("AUTH_PASSWORD")
+	if authUser == "" {
+		authUser = "admin"
+	}
+	if authPass == "" {
+		authPass = "changeme"
+	}
+
+	// Create middleware instances
+	authMiddleware := middleware.NewAuthMiddleware(middleware.AuthConfig{
+		Username:        authUser,
+		Password:        authPass,
+		SessionDuration: 24 * time.Hour,
+		Enabled:         authEnabled,
+	})
+
+	csrfMiddleware := middleware.NewCSRFMiddleware(middleware.CSRFConfig{
+		Enabled: authEnabled, // Enable CSRF only if auth is enabled
+	})
+
+	rateLimiter := middleware.NewRateLimiter(middleware.RateLimitConfig{
+		RequestsPerWindow: 1000, // Increased from 100 to 1000 for development
+		WindowDuration:    time.Minute,
+		Enabled:           true,
+	})
+
+	bodyLimiter := middleware.NewBodyLimitMiddleware(middleware.BodyLimitConfig{
+		MaxBodySize: 10 * 1024 * 1024, // 10MB
+		Enabled:     true,
+	})
+
+	// Build middleware chain
+	handler := http.Handler(s.router)
+	handler = csrfMiddleware.Middleware(handler)
+	handler = authMiddleware.Middleware(handler)
+	handler = rateLimiter.Middleware(handler)
+	handler = bodyLimiter.Middleware(handler)
+
+	s.handler = handler
 }
 
-// Start starts the API server
+// ServeHTTP implements the http.Handler interface
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.handler.ServeHTTP(w, r)
+}
+
+// Start starts the API server with proper timeout configuration
 func (s *Server) Start(addr string) error {
 	log.Printf("Starting server on %s", addr)
-	return http.ListenAndServe(addr, s)
+	
+	// Configure server with timeouts to prevent resource exhaustion
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      s,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+		// Limit request header size to 1MB
+		MaxHeaderBytes: 1 << 20,
+	}
+	
+	return srv.ListenAndServe()
 }
 
 // StartRiskDecayProcess starts the background process to decay risk scores

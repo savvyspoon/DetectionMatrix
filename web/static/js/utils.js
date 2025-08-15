@@ -84,10 +84,54 @@ class UIUtils {
     }
 
     /**
-     * Show alert message
+     * Show alert message with better UI
      */
-    static showAlert(message) {
-        alert(message);
+    static showAlert(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            padding: 12px 16px;
+            border-radius: 4px;
+            color: white;
+            max-width: 400px;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: opacity 0.3s ease;
+        `;
+        
+        // Set background color based on type
+        switch(type) {
+            case 'error':
+                notification.style.backgroundColor = '#dc3545';
+                break;
+            case 'warning':
+                notification.style.backgroundColor = '#ffc107';
+                notification.style.color = '#212529';
+                break;
+            case 'success':
+                notification.style.backgroundColor = '#28a745';
+                break;
+            default:
+                notification.style.backgroundColor = '#17a2b8';
+        }
+        
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 5000);
     }
 
     /**

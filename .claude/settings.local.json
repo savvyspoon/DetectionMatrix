@@ -17,8 +17,11 @@
       "Bash(sed:*)",
       "Bash(for file in *.html)",
       "Bash(do echo \"=== $file ===\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(CGO_ENABLED=1 go run ./cmd/server -addr :8080)",
+      "Bash(CGO_ENABLED=1 go build -o server ./cmd/server)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

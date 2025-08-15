@@ -37,12 +37,12 @@
             <div class="card-header">
                 <h2>Data Sources</h2>
                 <div class="card-actions">
-                    <button class="btn btn-primary" @click="showForm = true" x-show="!showForm && !selectedDataSource">Add Data Source</button>
+                    <button class="btn btn-primary" @click="showForm = true" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">Add Data Source</button>
                 </div>
             </div>
             
             <!-- Utilization Overview -->
-            <div class="utilization-overview" x-show="!showForm && !selectedDataSource">
+            <div class="utilization-overview" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
                 <h3>Data Source Utilization</h3>
                 <div class="chart-container" style="height: 300px;">
                     <canvas id="utilizationChart"></canvas>
@@ -50,7 +50,7 @@
             </div>
             
             <!-- Filters -->
-            <div class="filters" x-show="!showForm && !selectedDataSource">
+            <div class="filters" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
                 <div class="form-group">
                     <label for="search">Search</label>
                     <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search data sources...">
@@ -58,7 +58,7 @@
             </div>
             
             <!-- Data Source List -->
-            <div class="datasource-list" x-show="!showForm && !selectedDataSource">
+            <div class="datasource-list" x-show="!showForm && (!selectedDataSource || !selectedDataSource.id)">
                 <div class="table-container">
                     <table>
                     <thead>
@@ -117,20 +117,20 @@
             </div>
             
             <!-- Data Source Details -->
-            <div class="datasource-details" x-show="selectedDataSource">
+            <div class="datasource-details" x-show="selectedDataSource && selectedDataSource.id">
                 <h3>Edit Data Source</h3>
                 <form @submit.prevent="updateDataSource()">
                     <div class="form-group">
                         <label for="edit-name">Name</label>
-                        <input type="text" id="edit-name" x-model="selectedDataSource.name" required>
+                        <input type="text" id="edit-name" x-model="selectedDataSource?.name" :value="selectedDataSource?.name || ''" required>
                     </div>
                     <div class="form-group">
                         <label for="edit-description">Description</label>
-                        <textarea id="edit-description" x-model="selectedDataSource.description"></textarea>
+                        <textarea id="edit-description" x-model="selectedDataSource?.description" :value="selectedDataSource?.description || ''"></textarea>
                     </div>
                     <div class="form-group">
                         <label for="edit-log-format">Log Format</label>
-                        <input type="text" id="edit-log-format" x-model="selectedDataSource.log_format">
+                        <input type="text" id="edit-log-format" x-model="selectedDataSource?.log_format" :value="selectedDataSource?.log_format || ''">
                     </div>
                     
                     <!-- Associated Detections -->
@@ -200,7 +200,7 @@
                     
                     <div class="form-actions">
                         <button type="submit" class="btn btn-success">Update</button>
-                        <button type="button" class="btn" @click="selectedDataSource = null; associatedDetections = []; associatedTechniques = []">Back</button>
+                        <button type="button" class="btn" @click="closeModal()">Back</button>
                     </div>
                 </form>
             </div>

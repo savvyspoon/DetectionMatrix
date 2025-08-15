@@ -7,10 +7,10 @@
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/risk-objects-detail.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <header>
@@ -38,6 +38,7 @@
                 <h2 x-show="!loading" x-text="riskObject ? `Risk Object: ${riskObject.entity_value}` : 'Risk Object Details'">Risk Object Details</h2>
                 <h2 x-show="loading">Loading...</h2>
                 <div class="card-actions">
+                    <button x-show="!loading" @click="resetChart()" class="btn btn-secondary btn-sm">Reset Chart</button>
                     <a href="risk-objects.html" class="btn">Back to Risk Objects</a>
                 </div>
             </div>
@@ -54,27 +55,27 @@
                     <div class="info-item">
                         <label>Entity:</label>
                         <div class="entity-info">
-                            <span class="entity-icon" x-text="getEntityTypeIcon(riskObject.entity_type)"></span>
-                            <span class="entity-value" x-text="riskObject.entity_value"></span>
+                            <span class="entity-icon" x-text="riskObject ? getEntityTypeIcon(riskObject.entity_type) : ''"></span>
+                            <span class="entity-value" x-text="riskObject ? riskObject.entity_value : ''"></span>
                         </div>
                     </div>
                     <div class="info-item">
                         <label>Entity Type:</label>
-                        <span class="badge badge-secondary" x-text="riskObject.entity_type"></span>
+                        <span class="badge badge-secondary" x-text="riskObject ? riskObject.entity_type : ''"></span>
                     </div>
                     <div class="info-item">
                         <label>Current Risk Score:</label>
-                        <span class="risk-score" x-text="riskObject.current_score"></span>
+                        <span class="risk-score" x-text="riskObject ? riskObject.current_score : ''"></span>
                     </div>
                     <div class="info-item">
                         <label>Risk Level:</label>
                         <span class="risk-level" 
-                              :class="getRiskLevelClass(riskObject.current_score)"
-                              x-text="getRiskLevelText(riskObject.current_score)"></span>
+                              :class="riskObject ? getRiskLevelClass(riskObject.current_score) : ''"
+                              x-text="riskObject ? getRiskLevelText(riskObject.current_score) : ''"></span>
                     </div>
                     <div class="info-item">
                         <label>Last Seen:</label>
-                        <span x-text="formatTimestamp(riskObject.last_seen)"></span>
+                        <span x-text="riskObject ? formatTimestamp(riskObject.last_seen) : ''"></span>
                     </div>
                     <div class="info-item">
                         <label>Total Events:</label>
@@ -84,16 +85,22 @@
             </div>
             
             <!-- Risk Trend Chart -->
-            <div x-show="!loading && events.length > 0" class="risk-trend">
+            <div x-show="!loading" class="risk-trend">
                 <h3>Risk Score Trend</h3>
-                <div class="chart-container" style="height: 300px;">
-                    <canvas id="riskTrendChart"></canvas>
+                <div x-show="events.length > 0 || (riskObject && riskObject.current_score > 0)" class="chart-container" style="position: relative; height: 400px; width: 100%; min-height: 400px;">
+                    <canvas id="riskTrendChart" style="width: 100% !important; height: 100% !important;"></canvas>
+                </div>
+                <div x-show="events.length === 0 && (!riskObject || riskObject.current_score === 0)" class="empty-state">
+                    <p>No historical data available for risk trend chart</p>
                 </div>
                 
                 <!-- Risk Score History Table -->
                 <div class="risk-score-history" style="margin-top: 2rem;">
                     <h4>Risk Score History</h4>
-                    <table>
+                    <div x-show="calculateRiskScoreHistory().length === 0" class="empty-state">
+                        <p>No risk score history available</p>
+                    </div>
+                    <table x-show="calculateRiskScoreHistory().length > 0">
                         <thead>
                             <tr>
                                 <th>Timestamp</th>
@@ -402,6 +409,20 @@
         .text-muted {
             color: #6c757d;
             font-style: italic;
+        }
+        
+        .chart-container {
+            background-color: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .chart-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
         }
     </style>
 </body>

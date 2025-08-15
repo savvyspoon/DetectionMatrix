@@ -3,14 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>MITRE ATT&CK - RiskMatrix</title>
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/mitre.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        // Force cleanup of any cached chart references
+        console.log('🧹 Cleaning up any existing chart references...');
+        ['mitreChart', 'coverageChart', 'chart', 'myChart'].forEach(name => {
+            if (window[name]) {
+                try {
+                    if (typeof window[name].destroy === 'function') {
+                        window[name].destroy();
+                    }
+                } catch (e) {
+                    console.warn('Cleanup error for', name, e);
+                }
+                window[name] = null;
+                delete window[name];
+            }
+        });
+        window.mitreInitialized = false;
+        console.log('✅ Chart cleanup complete');
+    </script>
+    <script src="js/utils.js"></script>
+    <script src="js/mitre.js?v=20250815-4&cb=1734529200"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
     <header>
@@ -36,18 +58,31 @@
         <div class="card" x-data="mitreData()" x-init="init()">
             <div class="card-header">
                 <h2>Detection Count by Tactic</h2>
+                <div x-show="loading" class="loading-indicator">
+                    <p>Loading MITRE data...</p>
+                </div>
+                <div x-show="error" class="error-indicator">
+                    <p style="color: red;">Error: <span x-text="error"></span></p>
+                    <button @click="init()" class="btn btn-primary">Retry</button>
+                </div>
             </div>
             
             <!-- Coverage Overview -->
             <div class="coverage-overview">
-                <div class="chart-container" style="height: 300px;">
-                    <canvas id="coverageChart"></canvas>
+                <div class="chart-container" style="height: 300px; position: relative;">
+                    <div x-show="loading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                        <p>Loading coverage data...</p>
+                    </div>
+                    <div x-show="error" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: red;">
+                        <p>Error loading coverage data</p>
+                    </div>
+                    <canvas id="coverageChart" x-show="!loading && !error"></canvas>
                 </div>
             </div>
             
             
             <!-- Matrix View -->
-            <div class="matrix-view" x-show="!selectedTechnique">
+            <div class="matrix-view" x-show="!selectedTechnique && !loading && !error">
                 <div class="matrix-header">
                     <h3 class="matrix-title">ATT&CK Matrix</h3>
                 </div>
@@ -106,9 +141,9 @@
                     <ol>
                         <li><a href="index.html">Home</a></li>
                         <li><a href="mitre.html">Enterprise Matrix</a></li>
-                        <li><span x-text="selectedTechnique.tactic"></span></li>
+                        <li><span x-text="selectedTechnique ? selectedTechnique.tactic : ''"></span></li>
                         <li aria-current="page">
-                            <span x-text="selectedTechnique.id + ' - ' + selectedTechnique.name"></span>
+                            <span x-text="selectedTechnique ? (selectedTechnique.id + ' - ' + selectedTechnique.name) : ''"></span>
                         </li>
                     </ol>
                 </nav>
@@ -120,17 +155,17 @@
                 
                 <div class="technique-detail-container">
                     <div class="technique-detail-header">
-                        <div class="technique-id-badge" x-text="selectedTechnique.id"></div>
-                        <h3 class="technique-detail-name" x-text="selectedTechnique.name"></h3>
+                        <div class="technique-id-badge" x-text="selectedTechnique ? selectedTechnique.id : ''"></div>
+                        <h3 class="technique-detail-name" x-text="selectedTechnique ? selectedTechnique.name : ''"></h3>
                         <div class="technique-meta">
-                            <span class="badge badge-primary" x-text="selectedTechnique.tactic"></span>
+                            <span class="badge badge-primary" x-text="selectedTechnique ? selectedTechnique.tactic : ''"></span>
                         </div>
                     </div>
 
                     <div class="technique-detail-content">
                         <section class="technique-section">
                             <h4>Description</h4>
-                            <p x-text="selectedTechnique.description || 'No description available.'"></p>
+                            <p x-text="selectedTechnique ? (selectedTechnique.description || 'No description available.') : ''"></p>
                         </section>
                         
                         <!-- Associated Detections -->

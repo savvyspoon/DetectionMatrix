@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Chart Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <h1>Chart.js Test</h1>
+    <div style="width: 600px; height: 400px; border: 2px solid red;">
+        <canvas id="myChart"></canvas>
+    </div>
+    <button onclick="createChart()">Create Chart</button>
+    
+    <script>
+        function createChart() {
+            console.log('Creating chart...');
+            const ctx = document.getElementById('myChart').getContext('2d');
+            
+            const myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+                    datasets: [{
+                        label: 'Test Data',
+                        data: [12, 19, 3, 5, 2],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+            
+            console.log('Chart created:', myChart);
+        }
+        
+        // Auto-create chart after page loads
+        window.addEventListener('load', createChart);
+    </script>
+</body>
+</html>

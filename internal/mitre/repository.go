@@ -29,20 +29,21 @@ func (r *Repository) GetMitreTechnique(id string) (*models.MitreTechnique, error
 	
 	var technique models.MitreTechnique
 	var tacticsJSON, platformsJSON, dataSourcesJSON sql.NullString
+	var description, domain, lastModified, detection, subTechniqueOf sql.NullString
 	
 	err := row.Scan(
 		&technique.ID,
 		&technique.Name,
-		&technique.Description,
+		&description,
 		&technique.Tactic,
 		&tacticsJSON,
-		&technique.Domain,
-		&technique.LastModified,
-		&technique.Detection,
+		&domain,
+		&lastModified,
+		&detection,
 		&platformsJSON,
 		&dataSourcesJSON,
 		&technique.IsSubTechnique,
-		&technique.SubTechniqueOf,
+		&subTechniqueOf,
 	)
 	
 	if err != nil {
@@ -50,6 +51,23 @@ func (r *Repository) GetMitreTechnique(id string) (*models.MitreTechnique, error
 			return nil, fmt.Errorf("MITRE technique not found: %s", id)
 		}
 		return nil, fmt.Errorf("error scanning MITRE technique: %w", err)
+	}
+	
+	// Handle nullable fields
+	if description.Valid {
+		technique.Description = description.String
+	}
+	if domain.Valid {
+		technique.Domain = domain.String
+	}
+	if lastModified.Valid {
+		technique.LastModified = lastModified.String
+	}
+	if detection.Valid {
+		technique.Detection = detection.String
+	}
+	if subTechniqueOf.Valid {
+		technique.SubTechniqueOf = subTechniqueOf.String
 	}
 	
 	// Parse JSON arrays
@@ -91,24 +109,42 @@ func (r *Repository) ListMitreTechniques() ([]*models.MitreTechnique, error) {
 	for rows.Next() {
 		var technique models.MitreTechnique
 		var tacticsJSON, platformsJSON, dataSourcesJSON sql.NullString
+		var description, domain, lastModified, detection, subTechniqueOf sql.NullString
 		
 		err := rows.Scan(
 			&technique.ID,
 			&technique.Name,
-			&technique.Description,
+			&description,
 			&technique.Tactic,
 			&tacticsJSON,
-			&technique.Domain,
-			&technique.LastModified,
-			&technique.Detection,
+			&domain,
+			&lastModified,
+			&detection,
 			&platformsJSON,
 			&dataSourcesJSON,
 			&technique.IsSubTechnique,
-			&technique.SubTechniqueOf,
+			&subTechniqueOf,
 		)
 		
 		if err != nil {
 			return nil, fmt.Errorf("error scanning MITRE technique row: %w", err)
+		}
+		
+		// Handle nullable fields
+		if description.Valid {
+			technique.Description = description.String
+		}
+		if domain.Valid {
+			technique.Domain = domain.String
+		}
+		if lastModified.Valid {
+			technique.LastModified = lastModified.String
+		}
+		if detection.Valid {
+			technique.Detection = detection.String
+		}
+		if subTechniqueOf.Valid {
+			technique.SubTechniqueOf = subTechniqueOf.String
 		}
 		
 		// Parse JSON arrays
@@ -153,24 +189,42 @@ func (r *Repository) ListMitreTechniquesByTactic(tactic string) ([]*models.Mitre
 	for rows.Next() {
 		var technique models.MitreTechnique
 		var tacticsJSON, platformsJSON, dataSourcesJSON sql.NullString
+		var description, domain, lastModified, detection, subTechniqueOf sql.NullString
 		
 		err := rows.Scan(
 			&technique.ID,
 			&technique.Name,
-			&technique.Description,
+			&description,
 			&technique.Tactic,
 			&tacticsJSON,
-			&technique.Domain,
-			&technique.LastModified,
-			&technique.Detection,
+			&domain,
+			&lastModified,
+			&detection,
 			&platformsJSON,
 			&dataSourcesJSON,
 			&technique.IsSubTechnique,
-			&technique.SubTechniqueOf,
+			&subTechniqueOf,
 		)
 		
 		if err != nil {
 			return nil, fmt.Errorf("error scanning MITRE technique row: %w", err)
+		}
+		
+		// Handle nullable fields
+		if description.Valid {
+			technique.Description = description.String
+		}
+		if domain.Valid {
+			technique.Domain = domain.String
+		}
+		if lastModified.Valid {
+			technique.LastModified = lastModified.String
+		}
+		if detection.Valid {
+			technique.Detection = detection.String
+		}
+		if subTechniqueOf.Valid {
+			technique.SubTechniqueOf = subTechniqueOf.String
 		}
 		
 		// Parse JSON arrays

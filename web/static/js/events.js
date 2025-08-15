@@ -132,6 +132,57 @@ function eventsListData() {
             UIUtils.navigateTo(`events-detail.html?id=${eventId}`);
         },
         
+        async markAsFalsePositive(eventId) {
+            try {
+                const response = await fetch(`/api/events/${eventId}/false-positive`, {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    // Find the event and update its status
+                    const event = this.events.find(e => e.id === eventId);
+                    if (event) {
+                        event.is_false_positive = true;
+                    }
+                    this.applyFilters();
+                    UIUtils.showAlert('Event marked as false positive', 'success');
+                } else {
+                    throw new Error(`Failed to mark event as false positive: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error marking event as false positive:', error);
+                UIUtils.showAlert('Failed to mark event as false positive', 'error');
+            }
+        },
+        
+        getEntityValue(entityId) {
+            // Alias for getRiskObjectValue to maintain compatibility
+            return this.getRiskObjectValue(entityId);
+        },
+        
+        getPageNumbers() {
+            const pages = [];
+            const maxVisible = 5;
+            let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
+            let end = Math.min(this.totalPages, start + maxVisible - 1);
+            
+            // Adjust start if we're near the end
+            if (end - start < maxVisible - 1) {
+                start = Math.max(1, end - maxVisible + 1);
+            }
+            
+            for (let i = start; i <= end; i++) {
+                pages.push(i);
+            }
+            
+            return pages;
+        },
+        
+        onFilterChange() {
+            // Reset to first page when filters change
+            this.currentPage = 1;
+            this.applyFilters();
+        },
+        
         // Watchers for filter changes
         initWatchers() {
             this.$nextTick(() => {

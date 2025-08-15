@@ -31,6 +31,13 @@ function riskAlertDetailData() {
         loading: true,
         alertId: null,
         
+        // Form data properties for two-way binding
+        formData: {
+            status: 'New',
+            owner: '',
+            notes: ''
+        },
+        
         async init() {
             const urlParams = new URLSearchParams(window.location.search);
             this.alertId = urlParams.get('id');
@@ -47,6 +54,10 @@ function riskAlertDetailData() {
             try {
                 // Fetch alert details
                 this.alert = await RiskAlertDetailAPI.fetchAlert(this.alertId);
+                
+                // Initialize form data with alert values
+                this.initializeFormData();
+                
                 await Promise.all([
                     this.fetchRiskObject(),
                     this.fetchEvents(),
@@ -58,6 +69,14 @@ function riskAlertDetailData() {
                 UIUtils.navigateTo('risk-alerts.html');
             }
             this.loading = false;
+        },
+        
+        initializeFormData() {
+            if (this.alert) {
+                this.formData.status = this.alert.status || 'New';
+                this.formData.owner = this.alert.owner || '';
+                this.formData.notes = this.alert.notes || '';
+            }
         },
         
         async fetchRiskObject() {
@@ -127,6 +146,69 @@ function riskAlertDetailData() {
         
         getFalsePositiveText(isFalsePositive) {
             return isFalsePositive ? 'False Positive' : 'Valid';
+        },
+        
+        // Risk level utility functions
+        getRiskLevelClass(score) {
+            if (!score) return 'risk-low';
+            if (score >= 100) return 'risk-critical';
+            if (score >= 75) return 'risk-high';
+            if (score >= 25) return 'risk-medium';
+            return 'risk-low';
+        },
+        
+        getRiskLevelText(score) {
+            if (!score) return 'Low';
+            if (score >= 100) return 'Critical';
+            if (score >= 75) return 'High';
+            if (score >= 25) return 'Medium';
+            return 'Low';
+        },
+        
+        // Parse context JSON string
+        parseContext(contextString) {
+            if (!contextString) return null;
+            try {
+                return JSON.parse(contextString);
+            } catch (error) {
+                console.error('Error parsing context:', error);
+                return null;
+            }
+        },
+        
+        // Update alert function for form submission
+        async updateAlert() {
+            if (!this.alert) return;
+            
+            try {
+                const updateData = {
+                    status: this.formData.status,
+                    owner: this.formData.owner,
+                    notes: this.formData.notes
+                };
+                
+                const response = await fetch(`/api/risk/alerts/${this.alertId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Update failed! status: ${response.status}`);
+                }
+                
+                // Update the alert object with new values
+                this.alert.status = this.formData.status;
+                this.alert.owner = this.formData.owner;
+                this.alert.notes = this.formData.notes;
+                
+                UIUtils.showAlert('Alert updated successfully', 'success');
+            } catch (error) {
+                console.error('Error updating alert:', error);
+                UIUtils.showAlert('Error updating alert', 'error');
+            }
         },
         
         viewEvent(eventId) {

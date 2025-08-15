@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -15,8 +16,18 @@ import (
 )
 
 func main() {
+	// Parse command line flags
+	dbPath := flag.String("db", "data/riskmatrix.db", "Path to SQLite database file")
+	csvPath := flag.String("csv", "data/mitre.csv", "Path to MITRE CSV file")
+	flag.Parse()
+
+	// Ensure data directory exists
+	if err := os.MkdirAll("data", 0755); err != nil {
+		log.Fatalf("Failed to create data directory: %v", err)
+	}
+
 	// Open the CSV file
-	file, err := os.Open("data/mitre.csv")
+	file, err := os.Open(*csvPath)
 	if err != nil {
 		log.Fatalf("Error opening CSV file: %v", err)
 	}
@@ -41,7 +52,7 @@ func main() {
 	}
 
 	// Connect to the database
-	db, err := database.New("data/mitre_import.db")
+	db, err := database.New(*dbPath)
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
 	}

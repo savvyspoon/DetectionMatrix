@@ -64,11 +64,14 @@ function dataSourcesData() {
             
             if (this.searchTerm) {
                 const searchLower = this.searchTerm.toLowerCase();
-                filtered = filtered.filter(ds =>
-                    ds.name.toLowerCase().includes(searchLower) ||
-                    ds.description.toLowerCase().includes(searchLower) ||
-                    ds.log_format.toLowerCase().includes(searchLower)
-                );
+                filtered = filtered.filter(ds => {
+                    const name = (ds.name || '').toLowerCase();
+                    const description = (ds.description || '').toLowerCase();
+                    const logFormat = (ds.log_format || '').toLowerCase();
+                    return name.includes(searchLower) ||
+                           description.includes(searchLower) ||
+                           logFormat.includes(searchLower);
+                });
             }
             
             this.filteredDataSources = filtered;
@@ -115,11 +118,20 @@ function dataSourcesData() {
         async selectDataSource(id) {
             const dataSource = this.dataSources.find(ds => ds.id === id);
             if (dataSource) {
-                this.selectedDataSource = { ...dataSource };
+                // Ensure all required properties exist with safe defaults
+                this.selectedDataSource = {
+                    id: dataSource.id,
+                    name: dataSource.name || '',
+                    description: dataSource.description || '',
+                    log_format: dataSource.log_format || ''
+                };
                 await Promise.all([
                     this.fetchDetectionsByDataSource(id),
                     this.fetchTechniquesByDataSource(id)
                 ]);
+            } else {
+                console.error('Data source not found:', id);
+                this.selectedDataSource = null;
             }
         },
         

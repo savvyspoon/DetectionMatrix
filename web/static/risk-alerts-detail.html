@@ -47,10 +47,10 @@
             <!-- Alert Details -->
             <div x-show="!loading && alert" class="alert-details">
                 <div class="alert-header">
-                    <h2>Risk Alert #<span x-text="alert.id"></span></h2>
+                    <h2>Risk Alert #<span x-text="alert?.id || 'N/A'"></span></h2>
                     <div class="alert-meta">
-                        <span x-text="getRiskLevelText(alert.total_score)" 
-                              :class="'badge ' + getRiskLevelClass(alert.total_score)"></span>
+                        <span x-text="getRiskLevelText(alert?.total_score)" 
+                              :class="'badge ' + getRiskLevelClass(alert?.total_score)"></span>
                     </div>
                 </div>
                 
@@ -60,33 +60,33 @@
                     <div class="info-grid">
                         <div class="info-item">
                             <label>Alert ID:</label>
-                            <span x-text="alert.id"></span>
+                            <span x-text="alert?.id || 'N/A'"></span>
                         </div>
                         <div class="info-item">
                             <label>Risk Score:</label>
-                            <span x-text="alert.total_score"></span>
+                            <span x-text="alert?.total_score || '0'"></span>
                         </div>
                         <div class="info-item">
                             <label>Risk Level:</label>
-                            <span x-text="getRiskLevelText(alert.total_score)" 
-                                  :class="'badge ' + getRiskLevelClass(alert.total_score)"></span>
+                            <span x-text="getRiskLevelText(alert?.total_score)" 
+                                  :class="'badge ' + getRiskLevelClass(alert?.total_score)"></span>
                         </div>
                         <div class="info-item">
                             <label>Triggered At:</label>
-                            <span x-text="formatTimestamp(alert.triggered_at)"></span>
+                            <span x-text="formatTimestamp(alert?.triggered_at)"></span>
                         </div>
                         <div class="info-item">
                             <label>Status:</label>
-                            <span x-text="alert.status || 'New'"></span>
+                            <span x-text="alert?.status || 'New'"></span>
                         </div>
                         <div class="info-item">
                             <label>Owner:</label>
-                            <span x-text="alert.owner || 'Unassigned'"></span>
+                            <span x-text="alert?.owner || 'Unassigned'"></span>
                         </div>
                     </div>
-                    <div class="info-item" x-show="alert.notes">
+                    <div class="info-item" x-show="alert?.notes">
                         <label>Notes:</label>
-                        <p x-text="alert.notes"></p>
+                        <p x-text="alert?.notes"></p>
                     </div>
                 </div>
                 
@@ -97,7 +97,7 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="alert-status">Status</label>
-                                <select id="alert-status" x-model="alert.status">
+                                <select id="alert-status" x-model="formData.status">
                                     <option value="New">New</option>
                                     <option value="Triage">Triage</option>
                                     <option value="Investigation">Investigation</option>
@@ -108,12 +108,12 @@
                             </div>
                             <div class="form-group">
                                 <label for="alert-owner">Owner</label>
-                                <input type="text" id="alert-owner" x-model="alert.owner" placeholder="Assign to analyst">
+                                <input type="text" id="alert-owner" x-model="formData.owner" placeholder="Assign to analyst">
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="alert-notes">Notes</label>
-                            <textarea id="alert-notes" x-model="alert.notes" rows="4" placeholder="Add notes about this alert..."></textarea>
+                            <textarea id="alert-notes" x-model="formData.notes" rows="4" placeholder="Add notes about this alert..."></textarea>
                         </div>
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary">Update Alert</button>
@@ -127,19 +127,19 @@
                     <div class="info-grid">
                         <div class="info-item">
                             <label>Entity Type:</label>
-                            <span x-text="riskObject.entity_type"></span>
+                            <span x-text="riskObject?.entity_type || 'Unknown'"></span>
                         </div>
                         <div class="info-item">
                             <label>Entity Value:</label>
-                            <span x-text="riskObject.entity_value"></span>
+                            <span x-text="riskObject?.entity_value || 'Unknown'"></span>
                         </div>
                         <div class="info-item">
                             <label>Current Score:</label>
-                            <span x-text="riskObject.current_score"></span>
+                            <span x-text="riskObject?.current_score || '0'"></span>
                         </div>
                         <div class="info-item">
                             <label>Last Seen:</label>
-                            <span x-text="formatTimestamp(riskObject.last_seen)"></span>
+                            <span x-text="formatTimestamp(riskObject?.last_seen)"></span>
                         </div>
                     </div>
                 </div>
@@ -147,10 +147,10 @@
                 <!-- Contributing Events -->
                 <div class="contributing-events">
                     <h3>Contributing Events</h3>
-                    <div x-show="events.length === 0" class="empty-state">
+                    <div x-show="!events || events.length === 0" class="empty-state">
                         No events found for this alert.
                     </div>
-                    <div x-show="events.length > 0" class="events-list">
+                    <div x-show="events && events.length > 0" class="events-list">
                         <table>
                             <thead>
                                 <tr>
@@ -162,14 +162,14 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <template x-for="event in events" :key="event.id">
+                                <template x-for="event in (events || [])" :key="event.id">
                                     <tr>
-                                        <td x-text="event.id"></td>
-                                        <td x-text="getDetectionName(event.detection_id)"></td>
-                                        <td x-text="event.risk_points"></td>
-                                        <td x-text="formatTimestamp(event.timestamp)"></td>
+                                        <td x-text="event?.id || 'N/A'"></td>
+                                        <td x-text="getDetectionName(event?.detection_id)"></td>
+                                        <td x-text="event?.risk_points || '0'"></td>
+                                        <td x-text="formatTimestamp(event?.timestamp)"></td>
                                         <td>
-                                            <a :href="`events-detail.html?id=${event.id}`" class="btn btn-secondary btn-sm">View Event</a>
+                                            <a :href="`events-detail.html?id=${event?.id}`" class="btn btn-secondary btn-sm">View Event</a>
                                         </td>
                                     </tr>
                                 </template>
@@ -181,22 +181,22 @@
                 <!-- Event Details Expandable -->
                 <div class="event-details-section">
                     <h3>Event Details</h3>
-                    <template x-for="event in events.slice(0, 5)" :key="event.id">
+                    <template x-for="event in ((events || []).slice(0, 5))" :key="event.id">
                         <div class="event-detail-card">
                             <div class="event-header">
-                                <h4>Event #<span x-text="event.id"></span> - <span x-text="getDetectionName(event.detection_id)"></span></h4>
-                                <span class="event-timestamp" x-text="formatTimestamp(event.timestamp)"></span>
+                                <h4>Event #<span x-text="event?.id || 'N/A'"></span> - <span x-text="getDetectionName(event?.detection_id)"></span></h4>
+                                <span class="event-timestamp" x-text="formatTimestamp(event?.timestamp)"></span>
                             </div>
                             <div class="event-content">
-                                <div class="event-raw-data" x-show="event.raw_data">
+                                <div class="event-raw-data" x-show="event?.raw_data">
                                     <strong>Raw Data:</strong>
-                                    <p x-text="event.raw_data"></p>
+                                    <p x-text="event?.raw_data"></p>
                                 </div>
-                                <div class="event-context" x-show="event.context">
+                                <div class="event-context" x-show="event?.context">
                                     <strong>Context:</strong>
-                                    <template x-if="parseContext(event.context)">
+                                    <template x-if="parseContext(event?.context)">
                                         <div class="context-grid">
-                                            <template x-for="[key, value] in Object.entries(parseContext(event.context))" :key="key">
+                                            <template x-for="[key, value] in Object.entries(parseContext(event?.context) || {})" :key="key">
                                                 <div class="context-item">
                                                     <span class="context-key" x-text="key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())"></span>:
                                                     <span class="context-value" x-text="Array.isArray(value) ? value.join(', ') : value"></span>
@@ -208,8 +208,8 @@
                             </div>
                         </div>
                     </template>
-                    <div x-show="events.length > 5" class="more-events">
-                        <p><strong x-text="events.length - 5"></strong> more events contributed to this alert. <a href="events.html">View all events</a></p>
+                    <div x-show="events && events.length > 5" class="more-events">
+                        <p><strong x-text="(events?.length || 0) - 5"></strong> more events contributed to this alert. <a href="events.html">View all events</a></p>
                     </div>
                 </div>
             </div>

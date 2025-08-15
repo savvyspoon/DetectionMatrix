@@ -31,11 +31,12 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 	var createdAt, updatedAt string
 	
 	var playbookLink, owner, riskObject, testingDescription, queryField sql.NullString
+	var description sql.NullString
 	
 	err := row.Scan(
 		&detection.ID,
 		&detection.Name,
-		&detection.Description,
+		&description,
 		&queryField,
 		&detection.Status,
 		&detection.Severity,
@@ -51,6 +52,9 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 	)
 	
 	// Handle nullable fields
+	if description.Valid {
+		detection.Description = description.String
+	}
 	if queryField.Valid {
 		detection.Query = queryField.String
 	}
@@ -74,9 +78,18 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 		return nil, fmt.Errorf("error scanning detection: %w", err)
 	}
 	
-	// Parse timestamps
-	detection.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-	detection.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+	// Parse timestamps (SQLite format)
+	if parsedTime, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
+		detection.CreatedAt = parsedTime
+	} else if parsedTime, err := time.Parse(time.RFC3339, createdAt); err == nil {
+		detection.CreatedAt = parsedTime
+	}
+	
+	if parsedTime, err := time.Parse("2006-01-02 15:04:05", updatedAt); err == nil {
+		detection.UpdatedAt = parsedTime
+	} else if parsedTime, err := time.Parse(time.RFC3339, updatedAt); err == nil {
+		detection.UpdatedAt = parsedTime
+	}
 	
 	// Load relationships
 	if err := r.loadMitreTechniques(&detection); err != nil {
@@ -108,11 +121,12 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 		var detection models.Detection
 		var createdAt, updatedAt string
 		var playbookLink, owner, riskObject, testingDescription, queryField sql.NullString
+		var description sql.NullString
 		
 		err := rows.Scan(
 			&detection.ID,
 			&detection.Name,
-			&detection.Description,
+			&description,
 			&queryField,
 			&detection.Status,
 			&detection.Severity,
@@ -132,6 +146,9 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 		}
 		
 		// Handle nullable fields
+		if description.Valid {
+			detection.Description = description.String
+		}
 		if queryField.Valid {
 			detection.Query = queryField.String
 		}
@@ -148,9 +165,18 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 			detection.TestingDescription = testingDescription.String
 		}
 		
-		// Parse timestamps
-		detection.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		detection.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		// Parse timestamps (SQLite format)
+		if parsedTime, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
+			detection.CreatedAt = parsedTime
+		} else if parsedTime, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			detection.CreatedAt = parsedTime
+		}
+		
+		if parsedTime, err := time.Parse("2006-01-02 15:04:05", updatedAt); err == nil {
+			detection.UpdatedAt = parsedTime
+		} else if parsedTime, err := time.Parse(time.RFC3339, updatedAt); err == nil {
+			detection.UpdatedAt = parsedTime
+		}
 		
 		detections = append(detections, &detection)
 	}
@@ -187,11 +213,12 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 		var detection models.Detection
 		var createdAt, updatedAt string
 		var playbookLink, owner, riskObject, testingDescription, queryField sql.NullString
+		var description sql.NullString
 		
 		err := rows.Scan(
 			&detection.ID,
 			&detection.Name,
-			&detection.Description,
+			&description,
 			&queryField,
 			&detection.Status,
 			&detection.Severity,
@@ -211,6 +238,9 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 		}
 		
 		// Handle nullable fields
+		if description.Valid {
+			detection.Description = description.String
+		}
 		if queryField.Valid {
 			detection.Query = queryField.String
 		}
@@ -227,9 +257,18 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 			detection.TestingDescription = testingDescription.String
 		}
 		
-		// Parse timestamps
-		detection.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		detection.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		// Parse timestamps (SQLite format)
+		if parsedTime, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
+			detection.CreatedAt = parsedTime
+		} else if parsedTime, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			detection.CreatedAt = parsedTime
+		}
+		
+		if parsedTime, err := time.Parse("2006-01-02 15:04:05", updatedAt); err == nil {
+			detection.UpdatedAt = parsedTime
+		} else if parsedTime, err := time.Parse(time.RFC3339, updatedAt); err == nil {
+			detection.UpdatedAt = parsedTime
+		}
 		
 		detections = append(detections, &detection)
 	}

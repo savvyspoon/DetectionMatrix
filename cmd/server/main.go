@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -40,16 +41,28 @@ func main() {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
+	// Server error channel
+	serverErr := make(chan error, 1)
+
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				serverErr <- fmt.Errorf("server panic: %v", r)
+			}
+		}()
 		if err := server.Start(*addr); err != nil {
-			log.Fatalf("Server error: %v", err)
+			serverErr <- err
 		}
 	}()
 
 	log.Printf("RiskMatrix server started on %s", *addr)
 	log.Printf("Press Ctrl+C to stop")
 
-	// Wait for shutdown signal
-	<-shutdown
-	log.Println("Shutting down...")
+	// Wait for shutdown signal or server error
+	select {
+	case <-shutdown:
+		log.Println("Shutting down...")
+	case err := <-serverErr:
+		log.Fatalf("Server error: %v", err)
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
@@ -30,6 +31,12 @@ func New(dbPath string) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+
+	// Configure connection pool for production use
+	sqlDB.SetMaxOpenConns(25)                 // Maximum number of open connections
+	sqlDB.SetMaxIdleConns(5)                  // Maximum number of idle connections
+	sqlDB.SetConnMaxLifetime(5 * time.Minute) // Maximum lifetime of a connection
+	sqlDB.SetConnMaxIdleTime(2 * time.Minute) // Maximum idle time before connection is closed
 
 	// Test connection
 	if err := sqlDB.Ping(); err != nil {

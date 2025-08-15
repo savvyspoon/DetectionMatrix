@@ -5,19 +5,36 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
+      args:
+        TARGETOS: linux
+        TARGETARCH: ${TARGETARCH:-amd64}
     container_name: riskmatrix
     ports:
       - "8080:8080"
     volumes:
       - ./data:/app/data
       - ./configs:/app/configs
+      - ./logs:/app/logs
     environment:
       - DB_PATH=/app/data/riskmatrix.db
       - CONFIG_PATH=/app/configs/config.json
+      - TZ=${TZ:-UTC}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:8080/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits for better performance
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M

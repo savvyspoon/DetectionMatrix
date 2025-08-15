@@ -1,4 +1,32 @@
 // MITRE ATT&CK JavaScript functionality
+
+// Global flag to prevent duplicate initialization
+window.mitreInitialized = false;
+window.mitreChart = null;
+
+// Clean up charts when page becomes hidden
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        if (window.mitreChart) {
+            try {
+                window.mitreChart.destroy();
+            } catch (e) {
+                console.warn('Error destroying mitreChart on visibility change:', e);
+            }
+            window.mitreChart = null;
+        }
+        if (window.coverageChart) {
+            try {
+                window.coverageChart.destroy();
+            } catch (e) {
+                console.warn('Error destroying coverageChart on visibility change:', e);
+            }
+            window.coverageChart = null;
+        }
+        window.mitreInitialized = false;
+    }
+});
+
 class MitreAPI {
     static async fetchTechniques() {
         return await APIUtils.fetchAPI('/api/mitre/techniques');
@@ -24,40 +52,89 @@ function mitreData() {
         selectedTechnique: null,
         detectionsByTechnique: [],
         techniqueDetectionCounts: {},
+        loading: true,
+        error: null,
         
         async init() {
-            await Promise.all([
-                this.fetchTechniques(),
-                this.fetchCoverage()
-            ]);
-            this.initWatchers();
-            this.initChart();
+            // Prevent duplicate initialization using global flag
+            if (window.mitreInitialized) {
+                console.log('MITRE component already initialized globally, skipping...');
+                return;
+            }
+            window.mitreInitialized = true;
+            
+            console.log('Initializing MITRE data component...');
+            this.loading = true;
+            this.error = null;
+            
+            try {
+                // Fetch techniques first, then coverage
+                await this.fetchTechniques();
+                await this.fetchCoverage();
+                console.log('Data fetching completed, initializing UI components...');
+                this.initWatchers();
+                
+                console.log('MITRE component initialization complete');
+                this.loading = false;
+                
+                // Initialize chart after loading is set to false and DOM updates
+                this.$nextTick(() => {
+                    console.log('About to initialize chart after DOM update...');
+                    setTimeout(() => {
+                        if (!window.mitreChart) {  // Only init if chart doesn't exist
+                            this.initChart();
+                        }
+                    }, 200);
+                });
+                
+            } catch (error) {
+                console.error('Error during MITRE component initialization:', error);
+                this.error = error.message;
+                this.loading = false;
+                UIUtils.showAlert('Failed to initialize MITRE component', 'error');
+            }
         },
         
         async fetchTechniques() {
             try {
+                console.log('Fetching MITRE techniques from API...');
                 this.techniques = await MitreAPI.fetchTechniques();
+                console.log(`Successfully loaded ${this.techniques.length} MITRE techniques`);
                 
                 if (this.techniques.length === 0) {
                     console.warn('No MITRE techniques found. Database may need to be populated.');
-                    // Show a helpful message to the user
                     UIUtils.showAlert('No MITRE techniques found. Please import MITRE data first.', 'warning');
+                } else {
+                    UIUtils.showAlert(`Successfully loaded ${this.techniques.length} MITRE techniques`, 'success');
                 }
                 
                 this.applyFilters();
                 await this.fetchDetectionCounts();
             } catch (error) {
                 console.error('Error fetching techniques:', error);
-                UIUtils.showAlert('Error loading MITRE techniques. Please check the server connection.', 'error');
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    url: '/api/mitre/techniques'
+                });
+                UIUtils.showAlert(`Error loading MITRE techniques: ${error.message}`, 'error');
                 this.techniques = [];
             }
         },
         
         async fetchCoverage() {
             try {
+                console.log('Fetching MITRE coverage data...');
                 this.coverage = await MitreAPI.fetchCoverage();
+                console.log('Coverage data loaded:', this.coverage);
             } catch (error) {
                 console.error('Error fetching coverage:', error);
+                console.error('Coverage API error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    url: '/api/mitre/coverage'
+                });
+                this.coverage = {};
             }
         },
         
@@ -186,43 +263,119 @@ function mitreData() {
         },
         
         initChart() {
-            this.$nextTick(() => {
-                const ctx = document.getElementById('coverageChart');
-                if (ctx && Object.keys(this.coverage).length > 0) {
-                    new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: Object.keys(this.coverage),
-                            datasets: [{
-                                label: 'Coverage Percentage',
-                                data: Object.values(this.coverage),
-                                backgroundColor: 'rgba(33, 150, 243, 0.8)'
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: 'MITRE ATT&CK Coverage by Tactic'
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    max: 100,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return value + '%';
-                                        }
-                                    }
-                                }
-                            }
+            console.log('=== CHART INIT START ===');
+            console.log('Current line number check - this should be around line 251');
+            console.log('Coverage data:', this.coverage);
+            
+            const ctx = document.getElementById('coverageChart');
+            if (!ctx) {
+                console.error('Canvas element not found!');
+                return;
+            }
+            
+            if (Object.keys(this.coverage).length === 0) {
+                console.warn('No coverage data available for chart');
+                return;
+            }
+            
+            // Complete chart cleanup - destroy everything
+            console.log('=== CLEANING UP CHARTS ===');
+            
+            // Get all possible chart references
+            const possibleCharts = ['mitreChart', 'coverageChart', 'chart', 'myChart'];
+            
+            possibleCharts.forEach(chartName => {
+                if (window[chartName]) {
+                    console.log(`Found chart: ${chartName}, attempting to destroy...`);
+                    try {
+                        if (typeof window[chartName].destroy === 'function') {
+                            window[chartName].destroy();
+                            console.log(`Successfully destroyed ${chartName}`);
+                        } else {
+                            console.log(`${chartName} does not have destroy method`);
                         }
-                    });
+                    } catch (e) {
+                        console.warn(`Error destroying ${chartName}:`, e);
+                    }
+                    window[chartName] = null;
                 }
             });
+            
+            // Clear any Chart.js instances from the canvas
+            if (ctx.chart) {
+                console.log('Found chart instance on canvas, destroying...');
+                try {
+                    ctx.chart.destroy();
+                } catch (e) {
+                    console.warn('Error destroying canvas chart:', e);
+                }
+            }
+            
+            console.log('=== CREATING NEW CHART ===');
+            
+            try {
+                const chartData = {
+                    labels: Object.keys(this.coverage),
+                    datasets: [{
+                        label: 'Coverage Percentage',
+                        data: Object.values(this.coverage),
+                        backgroundColor: 'rgba(33, 150, 243, 0.8)',
+                        borderColor: 'rgba(33, 150, 243, 1)',
+                        borderWidth: 1
+                    }]
+                };
+                
+                const chartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'MITRE ATT&CK Coverage by Tactic',
+                            font: { size: 16 }
+                        },
+                        legend: { display: true }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Coverage %'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'MITRE ATT&CK Tactics'
+                            }
+                        }
+                    }
+                };
+                
+                console.log('Chart data:', chartData);
+                console.log('About to create Chart instance...');
+                
+                window.mitreChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: chartData,
+                    options: chartOptions
+                });
+                
+                console.log('✅ Chart created successfully!', window.mitreChart);
+                console.log('=== CHART INIT COMPLETE ===');
+                
+            } catch (error) {
+                console.error('❌ Error creating chart:', error);
+                console.error('Error stack:', error.stack);
+                console.error('Error message:', error.message);
+            }
         },
         
         initWatchers() {

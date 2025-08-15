@@ -3,6 +3,7 @@ package pkg
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/mail"
 	"net/url"
 	"regexp"
@@ -351,36 +352,13 @@ func isValidEmail(email string) bool {
 }
 
 func isValidJSON(jsonStr string) bool {
-	var js map[string]interface{}
-	return json.Unmarshal([]byte(jsonStr), &js) == nil
+	// Use json.Valid for efficient validation without allocation
+	return json.Valid([]byte(jsonStr))
 }
 
 func isValidIPAddress(ip string) bool {
-	// Simple IP validation - could be enhanced with proper IP parsing
-	parts := strings.Split(ip, ".")
-	if len(parts) != 4 {
-		return false
-	}
-	
-	for _, part := range parts {
-		if len(part) == 0 || (len(part) > 1 && part[0] == '0') {
-			return false
-		}
-		
-		num := 0
-		for _, char := range part {
-			if char < '0' || char > '9' {
-				return false
-			}
-			num = num*10 + int(char-'0')
-		}
-		
-		if num > 255 {
-			return false
-		}
-	}
-	
-	return true
+	// Use standard library net.ParseIP for proper IP validation
+	return net.ParseIP(ip) != nil
 }
 
 func isValidHostname(hostname string) bool {
