@@ -43,14 +43,24 @@ func (h *DetectionHandler) GetDetection(w http.ResponseWriter, r *http.Request) 
 
 // ListDetections handles GET /api/detections
 func (h *DetectionHandler) ListDetections(w http.ResponseWriter, r *http.Request) {
-	// Check for status filter
+	// Check for filters
 	status := r.URL.Query().Get("status")
+	classIDStr := r.URL.Query().Get("class_id")
 
 	var detections []*models.Detection
 	var err error
 
-	if status != "" {
-		// List detections by status
+	// Apply filters based on query parameters
+	if classIDStr != "" {
+		// Filter by class ID
+		classID, parseErr := strconv.ParseInt(classIDStr, 10, 64)
+		if parseErr != nil {
+			http.Error(w, "Invalid class_id parameter", http.StatusBadRequest)
+			return
+		}
+		detections, err = h.repo.ListDetectionsByClass(classID)
+	} else if status != "" {
+		// Filter by status
 		detections, err = h.repo.ListDetectionsByStatus(models.DetectionStatus(status))
 	} else {
 		// List all detections
@@ -78,7 +88,8 @@ func (h *DetectionHandler) CreateDetection(w http.ResponseWriter, r *http.Reques
 
 	// Create detection in repository
 	if err := h.repo.CreateDetection(&detection); err != nil {
-		http.Error(w, "Error creating detection", http.StatusInternalServerError)
+		// Log the actual error for debugging
+		http.Error(w, "Error creating detection: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -110,7 +121,7 @@ func (h *DetectionHandler) UpdateDetection(w http.ResponseWriter, r *http.Reques
 
 	// Update detection in repository
 	if err := h.repo.UpdateDetection(&detection); err != nil {
-		http.Error(w, "Error updating detection", http.StatusInternalServerError)
+		http.Error(w, "Error updating detection: " + err.Error(), http.StatusInternalServerError)
 		return
 	}
 

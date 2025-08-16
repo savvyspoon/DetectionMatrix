@@ -26,13 +26,14 @@
                     <li><a href="events.html">Events</a></li>
                     <li><a href="risk-objects.html">Risk Objects</a></li>
                     <li><a href="risk-alerts.html">Risk Alerts</a></li>
+                    <li><a href="settings.html">Settings</a></li>
                 </ul>
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div class="card" x-data="detectionAddData()">
+        <div class="card" x-data="detectionAddData()" x-init="init()">
             <div class="card-header">
                 <h2>Add New Detection</h2>
                 <div class="card-actions">
@@ -71,6 +72,15 @@
                                 <option value="critical">Critical</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="class">Class</label>
+                            <select id="class" x-model.number="newDetection.class_id">
+                                <option :value="null">-- No Class --</option>
+                                <template x-for="cls in detectionClasses" :key="cls.id">
+                                    <option :value="cls.id" x-text="cls.name"></option>
+                                </template>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="risk-points">Risk Points</label>
@@ -88,7 +98,7 @@
                         <label for="risk-object">Risk Object</label>
                         <select id="risk-object" x-model="newDetection.risk_object">
                             <option value="">-- Select Risk Object Type --</option>
-                            <option value="IP">IP</option>
+                            <option value="IP">IP Address</option>
                             <option value="Host">Host</option>
                             <option value="User">User</option>
                         </select>

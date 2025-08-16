@@ -6,9 +6,7 @@
     <title>Detection Details - RiskMatrix</title>
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="js/utils.js"></script>
-    <script src="js/detections-detail.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -26,163 +24,16 @@
                     <li><a href="events.html">Events</a></li>
                     <li><a href="risk-objects.html">Risk Objects</a></li>
                     <li><a href="/alerts">Risk Alerts</a></li>
+                    <li><a href="settings.html">Settings</a></li>
                 </ul>
             </nav>
         </div>
     </header>
 
     <main class="container">
-        <div class="card" x-data="{ 
-            detection: null,
-            dataSources: [],
-            mitreTechniques: [],
-            selectedDataSource: null,
-            selectedMitreTechnique: null,
-            eventCount: 0,
-            falsePositiveCount: 0,
-            loading: true,
-            
-            async init() {
-                await this.fetchDataSources();
-                await this.fetchMitreTechniques();
-                await this.loadDetection();
-            },
-            
-            async loadDetection() {
-                const urlParams = new URLSearchParams(window.location.search);
-                const id = urlParams.get('id');
-                
-                if (!id) {
-                    alert('No detection ID provided');
-                    window.location.href = 'detections-list.html';
-                    return;
-                }
-                
-                const response = await fetch(`/api/detections/${id}`);
-                if (response.ok) {
-                    this.detection = await response.json();
-                    await this.loadEventCounts(id);
-                    this.loading = false;
-                } else {
-                    alert('Detection not found');
-                    window.location.href = 'detections-list.html';
-                }
-            },
-            
-            async loadEventCounts(detectionId) {
-                try {
-                    const eventCountResponse = await fetch(`/api/detections/${detectionId}/events/count/30days`);
-                    if (eventCountResponse.ok) {
-                        const eventData = await eventCountResponse.json();
-                        this.eventCount = eventData.count;
-                    }
-                    
-                    const fpCountResponse = await fetch(`/api/detections/${detectionId}/false-positives/count/30days`);
-                    if (fpCountResponse.ok) {
-                        const fpData = await fpCountResponse.json();
-                        this.falsePositiveCount = fpData.count;
-                    }
-                } catch (error) {
-                    console.error('Error loading event counts:', error);
-                }
-            },
-            
-            async fetchDataSources() {
-                const response = await fetch('/api/datasources');
-                if (response.ok) {
-                    this.dataSources = await response.json();
-                }
-            },
-            
-            async fetchMitreTechniques() {
-                const response = await fetch('/api/mitre/techniques');
-                if (response.ok) {
-                    this.mitreTechniques = await response.json();
-                }
-            },
-            
-            async updateDetection() {
-                const response = await fetch(`/api/detections/${this.detection.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(this.detection)
-                });
-                
-                if (response.ok) {
-                    alert('Detection updated successfully');
-                    await this.loadDetection(); // Refresh the data
-                } else {
-                    alert('Error updating detection. Please try again.');
-                }
-            },
-            
-            async addDataSource(detectionId, dataSourceId) {
-                if (!dataSourceId) return;
-                
-                const response = await fetch(`/api/detections/${detectionId}/datasource/${dataSourceId}`, {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    await this.loadDetection(); // Refresh to show updated data sources
-                    this.selectedDataSource = ''; // Reset selection
-                } else {
-                    alert('Error adding data source');
-                }
-            },
-            
-            async removeDataSource(detectionId, dataSourceId) {
-                if (!confirm('Are you sure you want to remove this data source?')) {
-                    return;
-                }
-                
-                const response = await fetch(`/api/detections/${detectionId}/datasource/${dataSourceId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    await this.loadDetection(); // Refresh to show updated data sources
-                } else {
-                    alert('Error removing data source');
-                }
-            },
-            
-            async addMitreTechnique(detectionId, techniqueId) {
-                if (!techniqueId) return;
-                
-                const response = await fetch(`/api/detections/${detectionId}/mitre/${techniqueId}`, {
-                    method: 'POST'
-                });
-                
-                if (response.ok) {
-                    await this.loadDetection(); // Refresh to show updated MITRE techniques
-                    this.selectedMitreTechnique = ''; // Reset selection
-                } else {
-                    alert('Error adding MITRE technique');
-                }
-            },
-            
-            async removeMitreTechnique(detectionId, techniqueId) {
-                if (!confirm('Are you sure you want to remove this MITRE technique?')) {
-                    return;
-                }
-                
-                const response = await fetch(`/api/detections/${detectionId}/mitre/${techniqueId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    await this.loadDetection(); // Refresh to show updated MITRE techniques
-                } else {
-                    alert('Error removing MITRE technique');
-                }
-            }
-        }" x-init="init()">
+        <div class="card" x-data="detectionDetailData()" x-init="init()">
             <div class="card-header">
-                <h2 x-show="!loading" x-text="detection ? `Detection: ${detection.name}` : 'Detection Details'">Detection Details</h2>
-                <h2 x-show="loading">Loading...</h2>
+                <h2 x-text="loading ? 'Loading...' : (detection && detection.id ? `Detection: ${detection.name}` : 'Detection Details')"></h2>
                 <div class="card-actions">
                     <a href="detections-list.html" class="btn">Back to List</a>
                 </div>
@@ -193,169 +44,144 @@
                 <p>Loading detection details...</p>
             </div>
             
-            <!-- Detection Information Display -->
-            <div x-show="!loading && detection" class="detection-info compact">
-                <div class="info-row">
-                    <div class="info-item inline">
-                        <label>Owner:</label>
-                        <span x-text="detection.owner || 'Not assigned'"></span>
-                    </div>
-                    <div class="info-item inline">
-                        <label>Risk Object:</label>
-                        <span x-text="detection.risk_object || 'Not specified'"></span>
-                    </div>
-                    <div class="info-item inline">
-                        <label>Events (30d):</label>
-                        <span x-text="eventCount"></span>
-                    </div>
-                    <div class="info-item inline">
-                        <label>FPs (30d):</label>
-                        <span x-text="falsePositiveCount"></span>
-                    </div>
-                </div>
-                <div class="info-item" x-show="detection.testing_description">
-                    <label>Testing:</label>
-                    <span class="testing-desc" x-text="detection.testing_description"></span>
-                </div>
+            <!-- Error State -->
+            <div x-show="!loading && error" class="alert alert-danger">
+                <p x-text="error"></p>
             </div>
-
-            <!-- Detection Details Form -->
-            <div x-show="!loading && detection" class="detection-details compact">
-                <form @submit.prevent="updateDetection()">
-                    <div class="form-group">
-                        <label for="edit-name">Name</label>
-                        <input type="text" id="edit-name" x-model="detection.name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-description">Description</label>
-                        <textarea id="edit-description" x-model="detection.description" required rows="2"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-query">Query</label>
-                        <textarea id="edit-query" x-model="detection.query" placeholder="Enter your detection query logic here..." rows="3"></textarea>
-                    </div>
-                    <div class="form-row">
+            
+            <!-- Detection Content -->
+            <div x-show="!loading && !error && detection && detection.id">
+                <!-- Edit Form -->
+                <div class="detection-form compact-form">
+                    <form @submit.prevent="updateDetection()">
                         <div class="form-group">
-                            <label for="edit-status">Status</label>
-                            <select id="edit-status" x-model="detection.status">
-                                <option value="idea">Idea</option>
-                                <option value="draft">Draft</option>
-                                <option value="test">Test</option>
-                                <option value="production">Production</option>
-                                <option value="retired">Retired</option>
-                            </select>
+                            <label for="edit-name">Name</label>
+                            <input type="text" id="edit-name" x-model="detection.name" required>
                         </div>
-                        <div class="form-group">
-                            <label for="edit-severity">Severity</label>
-                            <select id="edit-severity" x-model="detection.severity">
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                                <option value="critical">Critical</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-risk-points">Risk Points</label>
-                            <input type="number" id="edit-risk-points" x-model.number="detection.risk_points" min="0" max="100">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="edit-owner">Owner</label>
-                            <input type="text" id="edit-owner" x-model="detection.owner" placeholder="Detection owner/analyst">
-                        </div>
-                        <div class="form-group">
-                            <label for="edit-risk-object">Risk Object</label>
-                            <select id="edit-risk-object" x-model="detection.risk_object">
-                                <option value="">-- Select --</option>
-                                <option value="IP">IP</option>
-                                <option value="Host">Host</option>
-                                <option value="User">User</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-playbook-link">Playbook Link</label>
-                        <input type="text" id="edit-playbook-link" x-model="detection.playbook_link">
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-testing-description">Testing Description</label>
-                        <textarea id="edit-testing-description" x-model="detection.testing_description" placeholder="Testing and validation notes" rows="2"></textarea>
-                    </div>
-                    
-                    <!-- MITRE Techniques -->
-                    <div class="related-data compact">
-                        <h4>MITRE Techniques</h4>
-                        <div class="mitre-techniques">
-                            <template x-if="detection.mitre_techniques && detection.mitre_techniques.length > 0">
-                                <ul class="technique-list compact">
-                                    <template x-for="technique in detection.mitre_techniques" :key="technique.id">
-                                        <li>
-                                            <span x-text="`${technique.id} - ${technique.name}`" class="technique-text"></span>
-                                            <button type="button" class="btn-xs btn-danger" 
-                                                @click="removeMitreTechnique(detection.id, technique.id)">×</button>
-                                        </li>
-                                    </template>
-                                </ul>
-                            </template>
-                            <div x-show="!detection.mitre_techniques || detection.mitre_techniques.length === 0" class="no-items">
-                                No MITRE techniques
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit-status">Status</label>
+                                <select id="edit-status" x-model="detection.status">
+                                    <option value="idea">Idea</option>
+                                    <option value="draft">Draft</option>
+                                    <option value="test">Test</option>
+                                    <option value="production">Production</option>
+                                    <option value="retired">Retired</option>
+                                </select>
                             </div>
-                            
-                            <!-- Add MITRE Technique -->
-                            <div class="add-item compact">
-                                <select x-model="selectedMitreTechnique" class="form-control compact">
-                                    <option value="">-- Select MITRE Technique --</option>
-                                    <template x-for="technique in mitreTechniques" :key="technique.id">
-                                        <option :value="technique.id" x-text="`${technique.id} - ${technique.name}`"></option>
+                            <div class="form-group">
+                                <label for="edit-severity">Severity</label>
+                                <select id="edit-severity" x-model="detection.severity">
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="critical">Critical</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-class">Class</label>
+                                <select id="edit-class" x-model.number="detection.class_id">
+                                    <option :value="null">-- No Class --</option>
+                                    <template x-for="cls in detectionClasses" :key="cls.id">
+                                        <option :value="cls.id" x-text="cls.name"></option>
                                     </template>
                                 </select>
-                                <button type="button" class="btn btn-primary btn-sm" 
-                                    @click="addMitreTechnique(detection.id, selectedMitreTechnique)"
-                                    :disabled="!selectedMitreTechnique">Add</button>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-risk-points">Risk Points</label>
+                                <input type="number" id="edit-risk-points" x-model.number="detection.risk_points" min="0" max="100">
                             </div>
                         </div>
-                    </div>
-                    
-                    <!-- Data Sources -->
-                    <div class="related-data compact">
-                        <h4>Data Sources</h4>
-                        <div class="data-sources">
-                            <template x-if="detection.data_sources && detection.data_sources.length > 0">
-                                <ul class="source-list compact">
-                                    <template x-for="source in detection.data_sources" :key="source.id">
-                                        <li>
-                                            <span x-text="source.name" class="source-text"></span>
-                                            <button type="button" class="btn-xs btn-danger" 
-                                                @click="removeDataSource(detection.id, source.id)">×</button>
-                                        </li>
-                                    </template>
-                                </ul>
-                            </template>
-                            <div x-show="!detection.data_sources || detection.data_sources.length === 0" class="no-items">
-                                No data sources
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit-owner">Owner</label>
+                                <input type="text" id="edit-owner" x-model="detection.owner" placeholder="Detection owner/analyst name">
                             </div>
-                            
-                            <!-- Add Data Source -->
-                            <div class="add-item compact">
-                                <select x-model="selectedDataSource" class="form-control compact">
-                                    <option value="">-- Select Data Source --</option>
-                                    <template x-for="source in dataSources" :key="source.id">
-                                        <option :value="source.id" x-text="source.name"></option>
-                                    </template>
+                            <div class="form-group">
+                                <label for="edit-risk-object">Risk Object</label>
+                                <select id="edit-risk-object" x-model="detection.risk_object">
+                                    <option value="">-- Select Risk Object Type --</option>
+                                    <option value="User">User</option>
+                                    <option value="Host">Host</option>
+                                    <option value="IP">IP Address</option>
                                 </select>
-                                <button type="button" class="btn btn-primary btn-sm" 
-                                    @click="addDataSource(detection.id, selectedDataSource)"
-                                    :disabled="!selectedDataSource">Add</button>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-success">Update Detection</button>
-                        <a href="detections-list.html" class="btn">Back to List</a>
-                    </div>
-                </form>
+                        
+                        <div class="form-group">
+                            <label for="edit-description">Description</label>
+                            <textarea id="edit-description" x-model="detection.description" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit-query">Query</label>
+                                <textarea id="edit-query" x-model="detection.query" rows="3" placeholder="Detection query or logic"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-testing-description">Testing Description</label>
+                                <textarea id="edit-testing-description" x-model="detection.testing_description" rows="3" placeholder="How to test this detection"></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="edit-playbook-link">Playbook Link</label>
+                            <input type="text" id="edit-playbook-link" x-model="detection.playbook_link" placeholder="Link to response playbook">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Data Sources</label>
+                                <div class="compact-selector">
+                                    <select x-model="selectedDataSourceToAdd" @change="addDataSource()" class="form-control">
+                                        <option value="">-- Add data source --</option>
+                                        <template x-for="ds in availableDataSources" :key="ds.id">
+                                            <option :value="ds.id" x-text="ds.name"></option>
+                                        </template>
+                                    </select>
+                                    <div class="selected-items" x-show="selectedDataSources.length > 0">
+                                        <template x-for="dsId in selectedDataSources" :key="dsId">
+                                            <span class="selected-tag">
+                                                <span x-text="getDataSourceName(dsId)"></span>
+                                                <button type="button" @click="removeDataSource(dsId)" class="tag-remove">×</button>
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <div x-show="selectedDataSources.length === 0" class="no-selection-compact">
+                                        No data sources selected
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>MITRE ATT&CK Techniques</label>
+                                <div class="compact-selector">
+                                    <select x-model="selectedMitreTechniqueToAdd" @change="addMitreTechnique()" class="form-control">
+                                        <option value="">-- Add MITRE technique --</option>
+                                        <template x-for="technique in availableMitreTechniques" :key="technique.id">
+                                            <option :value="technique.id" x-text="`${technique.id} - ${technique.name}`"></option>
+                                        </template>
+                                    </select>
+                                    <div class="selected-items" x-show="selectedMitreTechniques.length > 0">
+                                        <template x-for="techniqueId in selectedMitreTechniques" :key="techniqueId">
+                                            <span class="selected-tag">
+                                                <span x-text="getMitreTechniqueName(techniqueId)"></span>
+                                                <button type="button" @click="removeMitreTechnique(techniqueId)" class="tag-remove">×</button>
+                                            </span>
+                                        </template>
+                                    </div>
+                                    <div x-show="selectedMitreTechniques.length === 0" class="no-selection-compact">
+                                        No MITRE techniques selected
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-success">Update Detection</button>
+                            <a href="detections-list.html" class="btn">Cancel</a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </main>
@@ -366,175 +192,322 @@
         </div>
     </footer>
 
+    <script>
+        function detectionDetailData() {
+            return {
+                detection: {
+                    name: '',
+                    description: '',
+                    status: 'idea',
+                    severity: 'low',
+                    class_id: null,
+                    risk_points: 0,
+                    owner: '',
+                    risk_object: '',
+                    query: '',
+                    playbook_link: '',
+                    testing_description: '',
+                    event_count_last_30_days: 0,
+                    false_positives_last_30_days: 0
+                },
+                detectionClasses: [],
+                dataSources: [],
+                selectedDataSources: [],
+                selectedDataSourceToAdd: '',
+                mitreTechniques: [],
+                selectedMitreTechniques: [],
+                selectedMitreTechniqueToAdd: '',
+                loading: true,
+                error: null,
+                
+                get availableDataSources() {
+                    return this.dataSources.filter(ds => !this.selectedDataSources.includes(ds.id));
+                },
+                
+                get availableMitreTechniques() {
+                    return this.mitreTechniques.filter(mt => !this.selectedMitreTechniques.includes(mt.id));
+                },
+                
+                async init() {
+                    console.log('Init called');
+                    try {
+                        // Get detection ID from URL
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const id = urlParams.get('id');
+                        
+                        if (!id) {
+                            this.error = 'No detection ID provided';
+                            this.loading = false;
+                            return;
+                        }
+                        
+                        // Load detection classes first (for the form)
+                        try {
+                            const classResp = await fetch('/api/detection-classes');
+                            if (classResp.ok) {
+                                this.detectionClasses = await classResp.json();
+                            }
+                        } catch (err) {
+                            console.warn('Could not load detection classes:', err);
+                        }
+                        
+                        // Load all available data sources
+                        try {
+                            const dsResp = await fetch('/api/datasources');
+                            if (dsResp.ok) {
+                                this.dataSources = await dsResp.json();
+                            }
+                        } catch (err) {
+                            console.warn('Could not load data sources:', err);
+                        }
+                        
+                        // Load all available MITRE techniques
+                        try {
+                            const mitreResp = await fetch('/api/mitre/techniques');
+                            if (mitreResp.ok) {
+                                this.mitreTechniques = await mitreResp.json();
+                            }
+                        } catch (err) {
+                            console.warn('Could not load MITRE techniques:', err);
+                        }
+                        
+                        // Load the detection
+                        const response = await fetch(`/api/detections/${id}`);
+                        
+                        if (response.ok) {
+                            this.detection = await response.json();
+                            console.log('Detection loaded:', this.detection);
+                            
+                            // Populate selected data sources
+                            if (this.detection.data_sources && Array.isArray(this.detection.data_sources)) {
+                                this.selectedDataSources = this.detection.data_sources.map(ds => ds.id);
+                            }
+                            
+                            // Populate selected MITRE techniques
+                            if (this.detection.mitre_techniques && Array.isArray(this.detection.mitre_techniques)) {
+                                this.selectedMitreTechniques = this.detection.mitre_techniques.map(mt => mt.id);
+                            }
+                        } else if (response.status === 404) {
+                            this.error = 'Detection not found';
+                        } else {
+                            this.error = `Error loading detection: ${response.status}`;
+                        }
+                        
+                    } catch (err) {
+                        console.error('Error in init:', err);
+                        this.error = `Error: ${err.message}`;
+                    } finally {
+                        this.loading = false;
+                        console.log('Init complete');
+                    }
+                },
+                
+                addDataSource() {
+                    if (this.selectedDataSourceToAdd && !this.selectedDataSources.includes(parseInt(this.selectedDataSourceToAdd))) {
+                        this.selectedDataSources.push(parseInt(this.selectedDataSourceToAdd));
+                        this.selectedDataSourceToAdd = '';
+                    }
+                },
+                
+                removeDataSource(dataSourceId) {
+                    const index = this.selectedDataSources.indexOf(dataSourceId);
+                    if (index > -1) {
+                        this.selectedDataSources.splice(index, 1);
+                    }
+                },
+                
+                getDataSourceName(dataSourceId) {
+                    const ds = this.dataSources.find(d => d.id === dataSourceId);
+                    return ds ? ds.name : 'Unknown';
+                },
+                
+                addMitreTechnique() {
+                    if (this.selectedMitreTechniqueToAdd && !this.selectedMitreTechniques.includes(this.selectedMitreTechniqueToAdd)) {
+                        this.selectedMitreTechniques.push(this.selectedMitreTechniqueToAdd);
+                        this.selectedMitreTechniqueToAdd = '';
+                    }
+                },
+                
+                removeMitreTechnique(techniqueId) {
+                    const index = this.selectedMitreTechniques.indexOf(techniqueId);
+                    if (index > -1) {
+                        this.selectedMitreTechniques.splice(index, 1);
+                    }
+                },
+                
+                getMitreTechniqueName(techniqueId) {
+                    const technique = this.mitreTechniques.find(t => t.id === techniqueId);
+                    return technique ? `${technique.id} - ${technique.name}` : 'Unknown';
+                },
+                
+                async updateDetection() {
+                    try {
+                        // Prepare update data
+                        const updateData = {
+                            id: this.detection.id,
+                            name: this.detection.name,
+                            description: this.detection.description || '',
+                            query: this.detection.query || '',
+                            status: this.detection.status,
+                            severity: this.detection.severity,
+                            risk_points: this.detection.risk_points || 0,
+                            playbook_link: this.detection.playbook_link || '',
+                            owner: this.detection.owner || '',
+                            risk_object: this.detection.risk_object || '',
+                            testing_description: this.detection.testing_description || '',
+                            event_count_last_30_days: this.detection.event_count_last_30_days || 0,
+                            false_positives_last_30_days: this.detection.false_positives_last_30_days || 0,
+                            class_id: this.detection.class_id === '' ? null : this.detection.class_id,
+                            data_source_ids: this.selectedDataSources,
+                            mitre_technique_ids: this.selectedMitreTechniques
+                        };
+                        
+                        const response = await fetch(`/api/detections/${this.detection.id}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(updateData)
+                        });
+                        
+                        if (response.ok) {
+                            alert('Detection updated successfully');
+                            // Reload the detection
+                            await this.init();
+                        } else {
+                            const errorText = await response.text();
+                            alert('Error updating detection: ' + errorText);
+                        }
+                    } catch (err) {
+                        console.error('Update error:', err);
+                        alert('Error updating detection: ' + err.message);
+                    }
+                }
+            };
+        }
+    </script>
+    
     <style>
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
+        /* Compact form styles */
+        .compact-form {
+            max-width: 100%;
         }
         
-        .loading-state {
-            text-align: center;
-            padding: 1rem;
-            color: #666;
+        .compact-form .form-group {
+            margin-bottom: 0.75rem;
+        }
+        
+        .compact-form .form-group label {
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+        }
+        
+        .compact-form textarea {
+            resize: vertical;
+        }
+        
+        /* Compact selector styles */
+        .compact-selector {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px;
+        }
+        
+        .compact-selector select {
+            margin-bottom: 6px;
+        }
+        
+        .selected-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        
+        .selected-tag {
+            display: inline-flex;
+            align-items: center;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 3px 8px;
+            font-size: 0.85rem;
+            line-height: 1.2;
+        }
+        
+        .selected-tag:hover {
+            background-color: #fff5f5;
+            border-color: #dc3545;
+        }
+        
+        .tag-remove {
+            background: transparent;
+            border: none;
+            color: #dc3545;
+            font-size: 16px;
+            margin-left: 4px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            font-weight: bold;
+        }
+        
+        .tag-remove:hover {
+            color: #c82333;
+        }
+        
+        .no-selection-compact {
+            color: #6c757d;
+            font-style: italic;
+            font-size: 0.85rem;
+            padding: 4px;
+        }
+        
+        /* Form styling consistency */
+        .form-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+            color: #212529;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.9rem;
+            line-height: 1.3;
+            color: #495057;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            color: #495057;
+            background-color: #fff;
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
         }
         
         .form-row {
             display: flex;
-            gap: 0.75rem;
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
         
         .form-row .form-group {
             flex: 1;
-        }
-        
-        .form-group {
-            margin-bottom: 0.75rem;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 0.25rem;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-        
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            font-size: 0.9rem;
-        }
-        
-        .form-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
-        }
-        
-        /* Compact styles */
-        .compact h3 {
-            margin: 0.5rem 0;
-            font-size: 1.1rem;
-        }
-        
-        .related-data.compact {
-            margin-top: 1rem;
-        }
-        
-        .related-data.compact h4 {
-            margin-bottom: 0.3rem;
-            color: var(--primary-color);
-            font-size: 1rem;
-        }
-        
-        .technique-list.compact, .source-list.compact {
-            list-style: none;
-            padding: 0;
-            margin: 0.3rem 0;
-        }
-        
-        .technique-list.compact li, .source-list.compact li {
-            padding: 0.3rem 0.5rem;
-            background-color: var(--light-bg);
-            margin-bottom: 0.25rem;
-            border-radius: 3px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.9rem;
-        }
-        
-        .btn-xs {
-            padding: 0.1rem 0.4rem;
-            font-size: 0.85rem;
-            border: none;
-            background: #dc3545;
-            color: white;
-            border-radius: 3px;
-            cursor: pointer;
-            min-width: 20px;
-        }
-        
-        .btn-xs:hover {
-            background: #c82333;
-        }
-        
-        .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.85rem;
-        }
-        
-        /* Add item styles */
-        .add-item.compact {
-            margin-top: 0.5rem;
-            padding-top: 0.5rem;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-        
-        .form-control.compact {
-            flex: 1;
-            padding: 0.3rem;
-            font-size: 0.9rem;
-        }
-        
-        .no-items {
-            color: #999;
-            font-size: 0.9rem;
-            font-style: italic;
-        }
-        
-        /* Detection Information Display Styles */
-        .detection-info.compact {
-            background-color: #f8f9fa;
-            border-radius: 6px;
-            padding: 0.75rem;
-            margin-bottom: 1rem;
-        }
-        
-        .info-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .info-item.inline {
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-        
-        .info-item.inline label {
-            font-weight: 600;
-            color: #333;
-            margin: 0;
-            font-size: 0.9rem;
-        }
-        
-        .info-item.inline span {
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
-        .info-item label {
-            font-weight: 600;
-            color: #333;
-            margin-right: 0.3rem;
-            font-size: 0.9rem;
-        }
-        
-        .testing-desc {
-            color: #666;
-            font-size: 0.9rem;
-            display: inline-block;
-            background-color: white;
-            padding: 0.3rem 0.5rem;
-            border-radius: 3px;
-            border: 1px solid #dee2e6;
+            margin-bottom: 0;
         }
     </style>
 </body>

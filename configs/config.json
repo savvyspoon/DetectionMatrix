@@ -15,7 +15,7 @@
   "risk_engine": {
     "threshold": 50,
     "decay_factor": 0.1,
-    "decay_interval_hours": 24
+    "decay_interval_hours": 2
   },
   "logging": {
     "level": "info",

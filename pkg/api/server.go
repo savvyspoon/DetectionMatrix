@@ -72,6 +72,7 @@ func NewServer(db *database.DB) *Server {
 func (s *Server) setupRoutes() {
 	// Create handlers
 	detectionHandler := NewDetectionHandler(s.detectionRepo)
+	detectionClassHandler := NewDetectionClassHandler(s.detectionRepo)
 	mitreHandler := NewMitreHandler(s.mitreRepo)
 	dataSourceHandler := NewDataSourceHandler(s.dataSourceRepo)
 	riskHandler := NewRiskHandler(s.riskEngine, s.riskRepo)
@@ -99,6 +100,14 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("DELETE /api/detections/{id}/mitre/{technique_id}", detectionHandler.RemoveMitreTechnique)
 	s.router.HandleFunc("POST /api/detections/{id}/datasource/{datasource_id}", detectionHandler.AddDataSource)
 	s.router.HandleFunc("DELETE /api/detections/{id}/datasource/{datasource_id}", detectionHandler.RemoveDataSource)
+	
+	// API routes - Detection Classes
+	s.router.HandleFunc("GET /api/detection-classes", detectionClassHandler.ListDetectionClasses)
+	s.router.HandleFunc("POST /api/detection-classes", detectionClassHandler.CreateDetectionClass)
+	s.router.HandleFunc("GET /api/detection-classes/{id}", detectionClassHandler.GetDetectionClass)
+	s.router.HandleFunc("PUT /api/detection-classes/{id}", detectionClassHandler.UpdateDetectionClass)
+	s.router.HandleFunc("DELETE /api/detection-classes/{id}", detectionClassHandler.DeleteDetectionClass)
+	s.router.HandleFunc("GET /api/detection-classes/{id}/detections", detectionClassHandler.ListDetectionsByClass)
 	
 	// API routes - MITRE
 	s.router.HandleFunc("GET /api/mitre/techniques", mitreHandler.ListMitreTechniques)

@@ -22,7 +22,7 @@ func NewRepository(db *database.DB) *Repository {
 
 // GetDetection retrieves a detection by ID
 func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
-	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at 
+	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, class_id, created_at, updated_at 
               FROM detections WHERE id = ?`
 	
 	row := r.db.QueryRow(query, id)
@@ -32,6 +32,7 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 	
 	var playbookLink, owner, riskObject, testingDescription, queryField sql.NullString
 	var description sql.NullString
+	var classID sql.NullInt64
 	
 	err := row.Scan(
 		&detection.ID,
@@ -47,6 +48,7 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 		&testingDescription,
 		&detection.EventCountLast30Days,
 		&detection.FalsePositivesLast30Days,
+		&classID,
 		&createdAt,
 		&updatedAt,
 	)
@@ -69,6 +71,14 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 	}
 	if testingDescription.Valid {
 		detection.TestingDescription = testingDescription.String
+	}
+	if classID.Valid {
+		detection.ClassID = &classID.Int64
+		// Load the class information
+		class, err := r.GetDetectionClass(classID.Int64)
+		if err == nil {
+			detection.Class = class
+		}
 	}
 	
 	if err != nil {
@@ -106,7 +116,7 @@ func (r *Repository) GetDetection(id int64) (*models.Detection, error) {
 
 // ListDetections retrieves all detections
 func (r *Repository) ListDetections() ([]*models.Detection, error) {
-	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at 
+	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, class_id, created_at, updated_at 
               FROM detections ORDER BY name`
 	
 	rows, err := r.db.Query(query)
@@ -122,6 +132,7 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 		var createdAt, updatedAt string
 		var playbookLink, owner, riskObject, testingDescription, queryField sql.NullString
 		var description sql.NullString
+		var classID sql.NullInt64
 		
 		err := rows.Scan(
 			&detection.ID,
@@ -137,6 +148,7 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 			&testingDescription,
 			&detection.EventCountLast30Days,
 			&detection.FalsePositivesLast30Days,
+			&classID,
 			&createdAt,
 			&updatedAt,
 		)
@@ -163,6 +175,9 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 		}
 		if testingDescription.Valid {
 			detection.TestingDescription = testingDescription.String
+		}
+		if classID.Valid {
+			detection.ClassID = &classID.Int64
 		}
 		
 		// Parse timestamps (SQLite format)
@@ -191,6 +206,13 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 			return nil, err
 		}
 		
+		// Load class if ClassID is set
+		if detection.ClassID != nil {
+			class, err := r.GetDetectionClass(*detection.ClassID)
+			if err == nil {
+				detection.Class = class
+			}
+		}
 	}
 	
 	return detections, nil
@@ -198,7 +220,7 @@ func (r *Repository) ListDetections() ([]*models.Detection, error) {
 
 // ListDetectionsByStatus retrieves detections by status
 func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*models.Detection, error) {
-	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at 
+	query := `SELECT id, name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, class_id, created_at, updated_at 
               FROM detections WHERE status = ? ORDER BY name`
 	
 	rows, err := r.db.Query(query, status)
@@ -214,6 +236,7 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 		var createdAt, updatedAt string
 		var playbookLink, owner, riskObject, testingDescription, queryField sql.NullString
 		var description sql.NullString
+		var classID sql.NullInt64
 		
 		err := rows.Scan(
 			&detection.ID,
@@ -229,6 +252,7 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 			&testingDescription,
 			&detection.EventCountLast30Days,
 			&detection.FalsePositivesLast30Days,
+			&classID,
 			&createdAt,
 			&updatedAt,
 		)
@@ -255,6 +279,9 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 		}
 		if testingDescription.Valid {
 			detection.TestingDescription = testingDescription.String
+		}
+		if classID.Valid {
+			detection.ClassID = &classID.Int64
 		}
 		
 		// Parse timestamps (SQLite format)
@@ -283,6 +310,13 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 			return nil, err
 		}
 		
+		// Load class if ClassID is set
+		if detection.ClassID != nil {
+			class, err := r.GetDetectionClass(*detection.ClassID)
+			if err == nil {
+				detection.Class = class
+			}
+		}
 	}
 	
 	return detections, nil
@@ -290,12 +324,23 @@ func (r *Repository) ListDetectionsByStatus(status models.DetectionStatus) ([]*m
 
 // CreateDetection creates a new detection
 func (r *Repository) CreateDetection(detection *models.Detection) error {
-	query := `INSERT INTO detections (name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO detections (name, description, query, status, severity, risk_points, playbook_link, owner, risk_object, testing_description, event_count_last_30_days, false_positives_last_30_days, class_id, created_at, updated_at) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	
 	now := time.Now()
 	detection.CreatedAt = now
 	detection.UpdatedAt = now
+	
+	var classID sql.NullInt64
+	if detection.ClassID != nil {
+		classID = sql.NullInt64{Int64: *detection.ClassID, Valid: true}
+	}
+	
+	// Handle nullable fields
+	var riskObject sql.NullString
+	if detection.RiskObject != "" {
+		riskObject = sql.NullString{String: string(detection.RiskObject), Valid: true}
+	}
 	
 	result, err := r.db.Exec(
 		query,
@@ -307,10 +352,11 @@ func (r *Repository) CreateDetection(detection *models.Detection) error {
 		detection.RiskPoints,
 		detection.PlaybookLink,
 		detection.Owner,
-		detection.RiskObject,
+		riskObject,
 		detection.TestingDescription,
 		detection.EventCountLast30Days,
 		detection.FalsePositivesLast30Days,
+		classID,
 		detection.CreatedAt.Format(time.RFC3339),
 		detection.UpdatedAt.Format(time.RFC3339),
 	)
@@ -331,10 +377,21 @@ func (r *Repository) CreateDetection(detection *models.Detection) error {
 // UpdateDetection updates an existing detection
 func (r *Repository) UpdateDetection(detection *models.Detection) error {
 	query := `UPDATE detections 
-              SET name = ?, description = ?, query = ?, status = ?, severity = ?, risk_points = ?, playbook_link = ?, owner = ?, risk_object = ?, testing_description = ?, event_count_last_30_days = ?, false_positives_last_30_days = ?, updated_at = ? 
+              SET name = ?, description = ?, query = ?, status = ?, severity = ?, risk_points = ?, playbook_link = ?, owner = ?, risk_object = ?, testing_description = ?, event_count_last_30_days = ?, false_positives_last_30_days = ?, class_id = ?, updated_at = ? 
               WHERE id = ?`
 	
 	detection.UpdatedAt = time.Now()
+	
+	var classID sql.NullInt64
+	if detection.ClassID != nil {
+		classID = sql.NullInt64{Int64: *detection.ClassID, Valid: true}
+	}
+	
+	// Handle nullable fields
+	var riskObject sql.NullString
+	if detection.RiskObject != "" {
+		riskObject = sql.NullString{String: string(detection.RiskObject), Valid: true}
+	}
 	
 	_, err := r.db.Exec(
 		query,
@@ -346,10 +403,11 @@ func (r *Repository) UpdateDetection(detection *models.Detection) error {
 		detection.RiskPoints,
 		detection.PlaybookLink,
 		detection.Owner,
-		detection.RiskObject,
+		riskObject,
 		detection.TestingDescription,
 		detection.EventCountLast30Days,
 		detection.FalsePositivesLast30Days,
+		classID,
 		detection.UpdatedAt.Format(time.RFC3339),
 		detection.ID,
 	)
@@ -613,4 +671,290 @@ func (r *Repository) loadDataSources(detection *models.Detection) error {
 		detection.DataSources = dataSources
 	}
 	return nil
+}
+
+// GetDetectionClass retrieves a detection class by ID
+func (r *Repository) GetDetectionClass(id int64) (*models.DetectionClass, error) {
+	query := `SELECT id, name, description, color, icon, is_system, display_order, created_at, updated_at 
+	          FROM detection_classes WHERE id = ?`
+	
+	row := r.db.QueryRow(query, id)
+	
+	var class models.DetectionClass
+	var createdAt, updatedAt string
+	var description, color, icon sql.NullString
+	
+	err := row.Scan(
+		&class.ID,
+		&class.Name,
+		&description,
+		&color,
+		&icon,
+		&class.IsSystem,
+		&class.DisplayOrder,
+		&createdAt,
+		&updatedAt,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("detection class not found")
+		}
+		return nil, err
+	}
+	
+	// Handle nullable fields
+	if description.Valid {
+		class.Description = description.String
+	}
+	if color.Valid {
+		class.Color = color.String
+	}
+	if icon.Valid {
+		class.Icon = icon.String
+	}
+	
+	// Parse timestamps
+	class.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+	class.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+	
+	return &class, nil
+}
+
+// ListDetectionClasses retrieves all detection classes
+func (r *Repository) ListDetectionClasses() ([]*models.DetectionClass, error) {
+	query := `SELECT id, name, description, color, icon, is_system, display_order, created_at, updated_at 
+	          FROM detection_classes ORDER BY display_order, name`
+	
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var classes []*models.DetectionClass
+	
+	for rows.Next() {
+		var class models.DetectionClass
+		var createdAt, updatedAt string
+		var description, color, icon sql.NullString
+		
+		err := rows.Scan(
+			&class.ID,
+			&class.Name,
+			&description,
+			&color,
+			&icon,
+			&class.IsSystem,
+			&class.DisplayOrder,
+			&createdAt,
+			&updatedAt,
+		)
+		
+		if err != nil {
+			return nil, err
+		}
+		
+		// Handle nullable fields
+		if description.Valid {
+			class.Description = description.String
+		}
+		if color.Valid {
+			class.Color = color.String
+		}
+		if icon.Valid {
+			class.Icon = icon.String
+		}
+		
+		// Parse timestamps
+		class.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+		class.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+		
+		classes = append(classes, &class)
+	}
+	
+	return classes, nil
+}
+
+// CreateDetectionClass creates a new detection class
+func (r *Repository) CreateDetectionClass(class *models.DetectionClass) error {
+	query := `INSERT INTO detection_classes (name, description, color, icon, is_system, display_order, created_at, updated_at)
+	          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+	
+	result, err := r.db.Exec(query, 
+		class.Name,
+		sql.NullString{String: class.Description, Valid: class.Description != ""},
+		sql.NullString{String: class.Color, Valid: class.Color != ""},
+		sql.NullString{String: class.Icon, Valid: class.Icon != ""},
+		class.IsSystem,
+		class.DisplayOrder,
+	)
+	
+	if err != nil {
+		return fmt.Errorf("error creating detection class: %w", err)
+	}
+	
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("error getting last insert ID: %w", err)
+	}
+	
+	class.ID = id
+	class.CreatedAt = time.Now()
+	class.UpdatedAt = time.Now()
+	
+	return nil
+}
+
+// UpdateDetectionClass updates an existing detection class
+func (r *Repository) UpdateDetectionClass(class *models.DetectionClass) error {
+	// Check if class exists and is not a system class
+	existing, err := r.GetDetectionClass(class.ID)
+	if err != nil {
+		return err
+	}
+	
+	if existing.IsSystem {
+		return fmt.Errorf("cannot modify system detection class")
+	}
+	
+	query := `UPDATE detection_classes 
+	          SET name = ?, description = ?, color = ?, icon = ?, display_order = ?, updated_at = CURRENT_TIMESTAMP
+	          WHERE id = ? AND is_system = 0`
+	
+	_, err = r.db.Exec(query,
+		class.Name,
+		sql.NullString{String: class.Description, Valid: class.Description != ""},
+		sql.NullString{String: class.Color, Valid: class.Color != ""},
+		sql.NullString{String: class.Icon, Valid: class.Icon != ""},
+		class.DisplayOrder,
+		class.ID,
+	)
+	
+	if err != nil {
+		return fmt.Errorf("error updating detection class: %w", err)
+	}
+	
+	class.UpdatedAt = time.Now()
+	return nil
+}
+
+// DeleteDetectionClass deletes a detection class
+func (r *Repository) DeleteDetectionClass(id int64) error {
+	// Check if class exists and is not a system class
+	existing, err := r.GetDetectionClass(id)
+	if err != nil {
+		return err
+	}
+	
+	if existing.IsSystem {
+		return fmt.Errorf("cannot delete system detection class")
+	}
+	
+	query := `DELETE FROM detection_classes WHERE id = ? AND is_system = 0`
+	
+	result, err := r.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("error deleting detection class: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("detection class not found or is a system class")
+	}
+	
+	return nil
+}
+
+// ListDetectionsByClass retrieves all detections for a specific class
+func (r *Repository) ListDetectionsByClass(classID int64) ([]*models.Detection, error) {
+	query := `SELECT d.id, d.name, d.description, d.query, d.status, d.severity, d.risk_points, 
+	                 d.playbook_link, d.owner, d.risk_object, d.testing_description, 
+	                 d.event_count_last_30_days, d.false_positives_last_30_days, 
+	                 d.class_id, d.created_at, d.updated_at
+	          FROM detections d
+	          WHERE d.class_id = ?
+	          ORDER BY d.name`
+	
+	rows, err := r.db.Query(query, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var detections []*models.Detection
+	
+	for rows.Next() {
+		var detection models.Detection
+		var createdAt, updatedAt string
+		var playbookLink, owner, riskObject, testingDescription, queryField sql.NullString
+		var description sql.NullString
+		var classID sql.NullInt64
+		
+		err := rows.Scan(
+			&detection.ID,
+			&detection.Name,
+			&description,
+			&queryField,
+			&detection.Status,
+			&detection.Severity,
+			&detection.RiskPoints,
+			&playbookLink,
+			&owner,
+			&riskObject,
+			&testingDescription,
+			&detection.EventCountLast30Days,
+			&detection.FalsePositivesLast30Days,
+			&classID,
+			&createdAt,
+			&updatedAt,
+		)
+		
+		if err != nil {
+			return nil, err
+		}
+		
+		// Handle nullable fields
+		if description.Valid {
+			detection.Description = description.String
+		}
+		if queryField.Valid {
+			detection.Query = queryField.String
+		}
+		if playbookLink.Valid {
+			detection.PlaybookLink = playbookLink.String
+		}
+		if owner.Valid {
+			detection.Owner = owner.String
+		}
+		if riskObject.Valid {
+			detection.RiskObject = models.RiskObjectType(riskObject.String)
+		}
+		if testingDescription.Valid {
+			detection.TestingDescription = testingDescription.String
+		}
+		if classID.Valid {
+			detection.ClassID = &classID.Int64
+		}
+		
+		// Parse timestamps
+		detection.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+		detection.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", updatedAt)
+		
+		// Load the class information
+		if detection.ClassID != nil {
+			class, err := r.GetDetectionClass(*detection.ClassID)
+			if err == nil {
+				detection.Class = class
+			}
+		}
+		
+		detections = append(detections, &detection)
+	}
+	
+	return detections, nil
 }

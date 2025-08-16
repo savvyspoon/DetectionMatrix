@@ -34,6 +34,19 @@ const (
 	RiskObjectUser RiskObjectType = "User"
 )
 
+// DetectionClass represents a category for detections
+type DetectionClass struct {
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	Description  string    `json:"description,omitempty"`
+	Color        string    `json:"color,omitempty"`
+	Icon         string    `json:"icon,omitempty"`
+	IsSystem     bool      `json:"is_system"`
+	DisplayOrder int       `json:"display_order"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // Detection represents a security detection rule
 type Detection struct {
 	ID                         int64           `json:"id"`
@@ -49,10 +62,12 @@ type Detection struct {
 	TestingDescription         string          `json:"testing_description,omitempty"`
 	EventCountLast30Days       int             `json:"event_count_last_30_days"`
 	FalsePositivesLast30Days   int             `json:"false_positives_last_30_days"`
+	ClassID                    *int64          `json:"class_id,omitempty"`
 	CreatedAt                  time.Time       `json:"created_at"`
 	UpdatedAt                  time.Time       `json:"updated_at"`
 	
 	// Relationships
+	Class           *DetectionClass  `json:"class,omitempty"`
 	MitreTechniques []MitreTechnique `json:"mitre_techniques,omitempty"`
 	DataSources     []DataSource     `json:"data_sources,omitempty"`
 }
@@ -72,6 +87,14 @@ type DetectionRepository interface {
 	RemoveMitreTechnique(detectionID int64, mitreID string) error
 	AddDataSource(detectionID int64, dataSourceID int64) error
 	RemoveDataSource(detectionID int64, dataSourceID int64) error
+	
+	// Detection Class operations
+	GetDetectionClass(id int64) (*DetectionClass, error)
+	ListDetectionClasses() ([]*DetectionClass, error)
+	CreateDetectionClass(class *DetectionClass) error
+	UpdateDetectionClass(class *DetectionClass) error
+	DeleteDetectionClass(id int64) error
+	ListDetectionsByClass(classID int64) ([]*Detection, error)
 	
 	// Analytics
 	GetDetectionCount() (int, error)

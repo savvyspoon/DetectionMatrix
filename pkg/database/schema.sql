@@ -109,6 +109,19 @@ CREATE TABLE IF NOT EXISTS false_positives (
     FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
 );
 
+-- Detection Classes
+CREATE TABLE IF NOT EXISTS detection_classes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    color TEXT, -- Hex color for UI display
+    icon TEXT, -- Icon name for UI display
+    is_system BOOLEAN NOT NULL DEFAULT 0, -- System defaults cannot be deleted
+    display_order INTEGER NOT NULL DEFAULT 999,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_detections_status ON detections(status);
 CREATE INDEX IF NOT EXISTS idx_events_detection_id ON events(detection_id);

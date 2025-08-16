@@ -49,7 +49,7 @@ DetectionMatrix/
 
 ### Prerequisites
 
-- Go 1.23 or higher
+- Go 1.24 or higher
 - SQLite
 - C compiler:
   - **Windows**: MinGW-w64 or MSYS2 with GCC
@@ -66,7 +66,7 @@ DetectionMatrix/
 
 2. Build the application:
 
-   **Important**: RiskMatrix requires CGO to be enabled for SQLite support.
+   **Important**: DetectionMatrix requires CGO to be enabled for SQLite support.
 
    **Windows**:
    ```
@@ -134,7 +134,7 @@ DetectionMatrix/
 
 ## API Documentation
 
-RiskMatrix provides a RESTful API for interacting with the platform:
+DetectionMatrix provides a RESTful API for interacting with the platform:
 
 ### Detections
 
@@ -190,6 +190,8 @@ Configuration is stored in `configs/config.json` and includes settings for:
 
 The project includes comprehensive test scripts in the `scripts/test/` directory:
 
+### Test Scripts
+
 ```bash
 # Run basic functionality test
 ./scripts/test/simple-test.ps1
@@ -203,6 +205,32 @@ The project includes comprehensive test scripts in the `scripts/test/` directory
 # Run Go unit tests
 go test ./...
 ```
+
+### Periodic Event Generator
+
+The `periodic-events.sh` script generates test events at regular intervals to simulate real-world detection activity and test the risk scoring system:
+
+```bash
+# Usage
+./scripts/test/periodic-events.sh [server_url] [interval_seconds] [events_per_interval] [max_iterations]
+
+# Examples
+# Send 5 events every 30 seconds for 100 iterations
+./scripts/test/periodic-events.sh http://localhost:8080 30 5 100
+
+# Quick test: 3 events every 10 seconds for 10 iterations
+./scripts/test/periodic-events.sh http://localhost:8080 10 3 10
+
+# Debug mode to see request details
+DEBUG=1 ./scripts/test/periodic-events.sh http://localhost:8080 5 2 5
+```
+
+**Features:**
+- Generates events with random severity levels (weighted towards low/medium)
+- Cycles through various risk objects (users, hosts, IPs)
+- Shows real-time success/failure indicators
+- Displays active risk alerts during execution
+- Tracks overall success rate and statistics
 
 ## License
 
@@ -220,7 +248,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - **Windows-specific**: If you're having issues with MinGW or MSYS2, consider using Docker or WSL (Windows Subsystem for Linux) for a smoother experience.
 
-- **Docker build stalling**: If the Docker build hangs, ensure you're using the correct Go version (1.23, not 1.24) in the Dockerfile.
+- **Docker build stalling**: If the Docker build hangs, ensure you have sufficient resources allocated to Docker and try building with `--no-cache` flag.
 
 - **Apple Silicon/ARM64**: Use the `./docker-build.sh` script which automatically detects and handles ARM64 architecture.
 

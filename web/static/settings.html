@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - RiskMatrix</title>
+    <link rel="stylesheet" href="css/normalize.css">
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        /* Settings Page Specific Styles */
+        .settings-container {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .settings-section {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .settings-section h2 {
+            margin: 0 0 1rem 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.5rem;
+        }
+
+        .section-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Add Class Form */
+        .add-class-form {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .add-class-form h3 {
+            margin: 0 0 1rem 0;
+            font-size: 1.1rem;
+            color: #495057;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 0.5rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .form-group input[type="color"] {
+            height: 38px;
+            cursor: pointer;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        /* Class List */
+        .class-list {
+            margin-top: 1rem;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .list-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #495057;
+        }
+
+        .settings-table {
+            width: 100%;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }
+
+        .settings-table th {
+            background: #f1f3f4;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border-bottom: 2px solid #dee2e6;
+            color: #495057;
+        }
+
+        .settings-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #f1f3f4;
+            font-size: 0.9rem;
+        }
+
+        .settings-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .class-name-display {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .color-preview {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .icon-preview {
+            font-size: 1.2rem;
+        }
+
+        .badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-system {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .badge-custom {
+            background-color: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .btn-link {
+            background: none;
+            border: none;
+            color: #3498db;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.85rem;
+            text-decoration: underline;
+        }
+
+        .btn-link:hover {
+            color: #2980b9;
+        }
+
+        .btn-link.delete {
+            color: #e74c3c;
+        }
+
+        .btn-link.delete:hover {
+            color: #c0392b;
+        }
+
+        .text-muted {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+
+        /* Icons */
+        .icon-shield::before { content: '🛡️'; }
+        .icon-cpu::before { content: '💻'; }
+        .icon-edit::before { content: '✏️'; }
+        .icon-network::before { content: '🌐'; }
+        .icon-database::before { content: '💾'; }
+        .icon-cloud::before { content: '☁️'; }
+        .icon-lock::before { content: '🔒'; }
+        .icon-alert::before { content: '⚠️'; }
+        .icon-test::before { content: '🧪'; }
+        .icon-updated::before { content: '🔄'; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .settings-container {
+                padding: 1rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .settings-table {
+                font-size: 0.8rem;
+            }
+
+            .settings-table th,
+            .settings-table td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <h1>RiskMatrix</h1>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Dashboard</a></li>
+                    <li><a href="detections-list.html">Detections</a></li>
+                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
+                    <li><a href="datasources.html">Data Sources</a></li>
+                    <li><a href="events.html">Events</a></li>
+                    <li><a href="risk-objects.html">Risk Objects</a></li>
+                    <li><a href="risk-alerts.html">Risk Alerts</a></li>
+                    <li><a href="settings.html" class="active">Settings</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="settings-container">
+        <div class="settings-section" x-data="settingsData()" x-init="init()">
+            <h2>Detection Classes</h2>
+            <p class="section-description">
+                Manage detection classification categories. System classes cannot be modified or deleted.
+            </p>
+            
+            <!-- Add/Edit Class Form -->
+            <div class="add-class-form" x-show="showAddForm" x-transition>
+                <h3 x-text="editingClass ? 'Edit Detection Class' : 'Add New Detection Class'"></h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="class-name">Name*</label>
+                        <input type="text" id="class-name" x-model="newClass.name" 
+                               placeholder="Enter class name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="class-description">Description</label>
+                        <input type="text" id="class-description" x-model="newClass.description"
+                               placeholder="Optional description">
+                    </div>
+                    <div class="form-group">
+                        <label for="class-color">Color</label>
+                        <input type="color" id="class-color" x-model="newClass.color">
+                    </div>
+                    <div class="form-group">
+                        <label for="class-icon">Icon</label>
+                        <select id="class-icon" x-model="newClass.icon">
+                            <option value="">None</option>
+                            <option value="shield">Shield (🛡️)</option>
+                            <option value="cpu">CPU (💻)</option>
+                            <option value="edit">Edit (✏️)</option>
+                            <option value="network">Network (🌐)</option>
+                            <option value="database">Database (💾)</option>
+                            <option value="cloud">Cloud (☁️)</option>
+                            <option value="lock">Lock (🔒)</option>
+                            <option value="alert">Alert (⚠️)</option>
+                            <option value="test">Test (🧪)</option>
+                            <option value="updated">Updated (🔄)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="class-order">Display Order</label>
+                        <input type="number" id="class-order" x-model.number="newClass.display_order"
+                               min="1" placeholder="999">
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" @click="saveClass()">
+                        <span x-text="editingClass ? 'Update' : 'Add'"></span> Class
+                    </button>
+                    <button class="btn btn-secondary" @click="cancelAdd()">Cancel</button>
+                </div>
+            </div>
+            
+            <!-- Class List -->
+            <div class="class-list">
+                <div class="list-header">
+                    <h3>Existing Classes</h3>
+                    <button class="btn btn-primary btn-sm" @click="showAddForm = true"
+                            x-show="!showAddForm">+ Add Class</button>
+                </div>
+                
+                <div x-show="loading" class="text-center">
+                    <p>Loading classes...</p>
+                </div>
+
+                <div x-show="!loading && error" class="alert alert-danger">
+                    <p x-text="error"></p>
+                </div>
+                
+                <table class="settings-table" x-show="!loading && !error && classes.length > 0">
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Color</th>
+                            <th>Icon</th>
+                            <th>Type</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="classItem in sortedClasses" :key="classItem.id">
+                            <tr>
+                                <td x-text="classItem.display_order"></td>
+                                <td>
+                                    <span class="class-name-display" 
+                                          :style="`background-color: ${classItem.color}20; color: ${classItem.color};`">
+                                        <i :class="`icon-${classItem.icon} icon-preview`" x-show="classItem.icon"></i>
+                                        <span x-text="classItem.name"></span>
+                                    </span>
+                                </td>
+                                <td x-text="classItem.description || '-'"></td>
+                                <td>
+                                    <span class="color-preview" 
+                                          :style="`background-color: ${classItem.color || '#6B7280'}`"
+                                          :title="classItem.color"></span>
+                                </td>
+                                <td>
+                                    <span x-show="classItem.icon" :class="`icon-${classItem.icon} icon-preview`"></span>
+                                    <span x-show="!classItem.icon" class="text-muted">-</span>
+                                </td>
+                                <td>
+                                    <span x-text="classItem.is_system ? 'System' : 'Custom'"
+                                          :class="classItem.is_system ? 'badge badge-system' : 'badge badge-custom'"></span>
+                                </td>
+                                <td>
+                                    <button class="btn-link" @click="editClass(classItem)"
+                                            x-show="!classItem.is_system">Edit</button>
+                                    <button class="btn-link delete" @click="deleteClass(classItem.id)"
+                                            x-show="!classItem.is_system">Delete</button>
+                                    <span x-show="classItem.is_system" class="text-muted">Protected</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div x-show="!loading && !error && classes.length === 0" class="text-center">
+                    <p class="text-muted">No detection classes found</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
+        </div>
+    </footer>
+
+    <script src="js/utils.js"></script>
+    <script src="js/settings.js"></script>
+</body>
+</html>

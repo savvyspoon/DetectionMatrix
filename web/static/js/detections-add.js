@@ -3,6 +3,10 @@ class DetectionAddAPI {
     static async createDetection(detection) {
         return await APIUtils.postAPI('/api/detections', detection);
     }
+    
+    static async fetchDetectionClasses() {
+        return await APIUtils.fetchAPI('/api/detection-classes');
+    }
 }
 
 // Alpine.js detection add data function
@@ -17,7 +21,22 @@ function detectionAddData() {
             playbook_link: '',
             owner: '',
             risk_object: '',
-            testing_description: ''
+            testing_description: '',
+            class_id: null
+        },
+        detectionClasses: [],
+        
+        async init() {
+            await this.fetchDetectionClasses();
+        },
+        
+        async fetchDetectionClasses() {
+            try {
+                this.detectionClasses = await DetectionAddAPI.fetchDetectionClasses();
+            } catch (error) {
+                console.error('Error fetching detection classes:', error);
+                this.detectionClasses = [];
+            }
         },
         
         async createDetection() {
@@ -40,7 +59,8 @@ function detectionAddData() {
                 playbook_link: '',
                 owner: '',
                 risk_object: '',
-                testing_description: ''
+                testing_description: '',
+                class_id: null
             };
         }
     };
