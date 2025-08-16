@@ -85,6 +85,12 @@ function eventDetailData() {
         dataSources: [],
         loading: true,
         
+        // False positive dialog state
+        showFPDialog: false,
+        fpAnalyst: '',
+        fpReasonType: '',
+        fpCustomReason: '',
+        
         async init() {
             await this.loadEvent();
         },
@@ -150,16 +156,40 @@ function eventDetailData() {
             return EventUtils.formatContext(context);
         },
         
-        async markAsFalsePositive() {
-            const reason = prompt('Please provide a reason for marking this as a false positive:');
-            if (!reason) return;
+        showFalsePositiveDialog() {
+            this.fpAnalyst = '';
+            this.fpReasonType = '';
+            this.fpCustomReason = '';
+            this.showFPDialog = true;
+        },
+        
+        closeFPDialog() {
+            this.showFPDialog = false;
+            this.fpAnalyst = '';
+            this.fpReasonType = '';
+            this.fpCustomReason = '';
+        },
+        
+        async confirmMarkAsFalsePositive() {
+            if (!this.fpAnalyst || !this.fpReasonType) {
+                alert('Please fill in all required fields');
+                return;
+            }
             
-            const analystName = prompt('Please enter your name:');
-            if (!analystName) return;
+            // Determine the final reason text
+            let reason = this.fpReasonType;
+            if (this.fpReasonType === 'Other' && this.fpCustomReason) {
+                reason = this.fpCustomReason;
+            }
             
             try {
-                await EventAPI.markAsFalsePositive(this.event.id, reason, analystName);
+                await EventAPI.markAsFalsePositive(this.event.id, reason, this.fpAnalyst);
+                this.closeFPDialog();
                 await this.loadEvent(); // Refresh event data
+                // Show success message if UIUtils is available
+                if (typeof UIUtils !== 'undefined' && UIUtils.showAlert) {
+                    UIUtils.showAlert('Event marked as false positive', 'success');
+                }
             } catch (error) {
                 console.error('Error marking false positive:', error);
                 alert('Error marking event as false positive');

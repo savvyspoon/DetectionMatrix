@@ -30,6 +30,13 @@ function eventsListData() {
         hasPrev: false,
         loading: false,
         
+        // False positive dialog state
+        showFPDialog: false,
+        selectedEventId: null,
+        fpAnalyst: '',
+        fpReasonType: '',
+        fpCustomReason: '',
+        
         async init() {
             await this.fetchEvents();
             this.initWatchers();
@@ -77,8 +84,8 @@ function eventsListData() {
         applyFilters() {
             this.filteredEvents = this.events.filter(event => {
                 const matchesFalsePositive = this.falsePositiveFilter === 'all' || 
-                    (this.falsePositiveFilter === 'valid' && !event.is_false_positive) ||
-                    (this.falsePositiveFilter === 'false_positive' && event.is_false_positive);
+                    (this.falsePositiveFilter === 'false' && !event.is_false_positive) ||
+                    (this.falsePositiveFilter === 'true' && event.is_false_positive);
                 
                 const matchesSearch = this.searchTerm === '' || 
                     event.raw_data?.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
@@ -132,18 +139,54 @@ function eventsListData() {
             UIUtils.navigateTo(`events-detail.html?id=${eventId}`);
         },
         
-        async markAsFalsePositive(eventId) {
+        showFalsePositiveDialog(eventId) {
+            this.selectedEventId = eventId;
+            this.fpAnalyst = '';
+            this.fpReasonType = '';
+            this.fpCustomReason = '';
+            this.showFPDialog = true;
+        },
+        
+        closeFPDialog() {
+            this.showFPDialog = false;
+            this.selectedEventId = null;
+            this.fpAnalyst = '';
+            this.fpReasonType = '';
+            this.fpCustomReason = '';
+        },
+        
+        async confirmMarkAsFalsePositive() {
+            if (!this.fpAnalyst || !this.fpReasonType) {
+                UIUtils.showAlert('Please fill in all required fields', 'error');
+                return;
+            }
+            
+            // Determine the final reason text
+            let reason = this.fpReasonType;
+            if (this.fpReasonType === 'Other' && this.fpCustomReason) {
+                reason = this.fpCustomReason;
+            }
+            
             try {
-                const response = await fetch(`/api/events/${eventId}/false-positive`, {
-                    method: 'POST'
+                const response = await fetch(`/api/events/${this.selectedEventId}/false-positive`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        reason: reason,
+                        analyst_name: this.fpAnalyst
+                    })
                 });
+                
                 if (response.ok) {
                     // Find the event and update its status
-                    const event = this.events.find(e => e.id === eventId);
+                    const event = this.events.find(e => e.id === this.selectedEventId);
                     if (event) {
                         event.is_false_positive = true;
                     }
                     this.applyFilters();
+                    this.closeFPDialog();
                     UIUtils.showAlert('Event marked as false positive', 'success');
                 } else {
                     throw new Error(`Failed to mark event as false positive: ${response.status}`);

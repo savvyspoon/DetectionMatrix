@@ -360,8 +360,21 @@ func (r *Repository) UpdateDetection(detection *models.Detection) error {
 // DeleteDetection deletes a detection by ID
 func (r *Repository) DeleteDetection(id int64) error {
 	query := `DELETE FROM detections WHERE id = ?`
-	_, err := r.db.Exec(query, id)
-	return err
+	result, err := r.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("detection with ID %d not found", id)
+	}
+	
+	return nil
 }
 
 // AddMitreTechnique adds a MITRE technique to a detection

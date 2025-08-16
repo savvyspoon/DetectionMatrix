@@ -32,6 +32,7 @@ function riskAlertsData() {
         statusFilter: '',
         sortBy: 'triggered_at',
         sortOrder: 'desc',
+        hideClosed: false,
         
         // Pagination state
         currentPage: 1,
@@ -98,8 +99,24 @@ function riskAlertsData() {
                 });
             }
             
-            // Apply sorting
+            // Hide closed alerts if checkbox is checked
+            if (this.hideClosed) {
+                filtered = filtered.filter(alert => alert.status.toLowerCase() !== 'closed');
+            }
+            
+            // Apply sorting with closed alerts always at bottom (unless hidden)
             filtered.sort((a, b) => {
+                // First, check if either alert is closed (only if not hiding closed)
+                if (!this.hideClosed) {
+                    const aIsClosed = a.status.toLowerCase() === 'closed';
+                    const bIsClosed = b.status.toLowerCase() === 'closed';
+                    
+                    // If one is closed and the other isn't, closed goes to bottom
+                    if (aIsClosed && !bIsClosed) return 1;
+                    if (!aIsClosed && bIsClosed) return -1;
+                }
+                
+                // If both are closed or both are not closed, apply normal sorting
                 let aVal = a[this.sortBy];
                 let bVal = b[this.sortBy];
                 
@@ -240,6 +257,10 @@ function riskAlertsData() {
                 this.$watch('statusFilter', async () => {
                     this.currentPage = 1;
                     await this.fetchAlerts();
+                });
+                
+                this.$watch('hideClosed', () => {
+                    this.applySortingAndFiltering();
                 });
             });
         }

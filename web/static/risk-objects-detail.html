@@ -34,101 +34,104 @@
 
     <main class="container">
         <div class="card" x-data="riskObjectDetailData()" x-init="init()">
-            <div class="card-header">
+            <div class="card-header compact">
                 <h2 x-show="!loading" x-text="riskObject ? `Risk Object: ${riskObject.entity_value}` : 'Risk Object Details'">Risk Object Details</h2>
                 <h2 x-show="loading">Loading...</h2>
-                <div class="card-actions">
+                <div class="header-actions">
                     <button x-show="!loading" @click="resetChart()" class="btn btn-secondary btn-sm">Reset Chart</button>
-                    <a href="risk-objects.html" class="btn">Back to Risk Objects</a>
+                    <a href="risk-objects.html" class="btn btn-sm">Back</a>
                 </div>
             </div>
             
             <!-- Loading State -->
-            <div x-show="loading" class="loading-state">
+            <div x-show="loading" class="loading-state compact">
                 <p>Loading risk object details...</p>
             </div>
             
             <!-- Risk Object Information -->
-            <div x-show="!loading && riskObject" class="risk-object-info">
+            <div x-show="!loading && riskObject" class="risk-object-info compact">
                 <h3>Risk Object Information</h3>
-                <div class="info-grid">
-                    <div class="info-item">
+                <div class="info-row">
+                    <div class="info-item inline">
                         <label>Entity:</label>
-                        <div class="entity-info">
-                            <span class="entity-icon" x-text="riskObject ? getEntityTypeIcon(riskObject.entity_type) : ''"></span>
-                            <span class="entity-value" x-text="riskObject ? riskObject.entity_value : ''"></span>
-                        </div>
+                        <span class="entity-icon" x-text="riskObject ? getEntityTypeIcon(riskObject.entity_type) : ''"></span>
+                        <span class="entity-value" x-text="riskObject ? riskObject.entity_value : ''"></span>
                     </div>
-                    <div class="info-item">
-                        <label>Entity Type:</label>
-                        <span class="badge badge-secondary" x-text="riskObject ? riskObject.entity_type : ''"></span>
+                    <div class="info-item inline">
+                        <label>Type:</label>
+                        <span class="badge-compact badge-secondary" x-text="riskObject ? riskObject.entity_type : ''"></span>
                     </div>
-                    <div class="info-item">
-                        <label>Current Risk Score:</label>
-                        <span class="risk-score" x-text="riskObject ? riskObject.current_score : ''"></span>
+                    <div class="info-item inline">
+                        <label>Score:</label>
+                        <span class="risk-score compact" x-text="riskObject ? riskObject.current_score : ''"></span>
                     </div>
-                    <div class="info-item">
-                        <label>Risk Level:</label>
-                        <span class="risk-level" 
+                    <div class="info-item inline">
+                        <label>Level:</label>
+                        <span class="risk-level compact" 
                               :class="riskObject ? getRiskLevelClass(riskObject.current_score) : ''"
                               x-text="riskObject ? getRiskLevelText(riskObject.current_score) : ''"></span>
                     </div>
-                    <div class="info-item">
+                    <div class="info-item inline">
                         <label>Last Seen:</label>
                         <span x-text="riskObject ? formatTimestamp(riskObject.last_seen) : ''"></span>
                     </div>
-                    <div class="info-item">
-                        <label>Total Events:</label>
+                    <div class="info-item inline">
+                        <label>Events:</label>
                         <span x-text="events.length"></span>
                     </div>
                 </div>
             </div>
             
             <!-- Risk Trend Chart -->
-            <div x-show="!loading" class="risk-trend">
+            <div x-show="!loading" class="risk-trend compact">
                 <h3>Risk Score Trend</h3>
-                <div x-show="events.length > 0 || (riskObject && riskObject.current_score > 0)" class="chart-container" style="position: relative; height: 400px; width: 100%; min-height: 400px;">
-                    <canvas id="riskTrendChart" style="width: 100% !important; height: 100% !important;"></canvas>
+                <div x-show="events.length > 0 || (riskObject && riskObject.current_score > 0)" class="chart-container compact">
+                    <canvas id="riskTrendChart"></canvas>
                 </div>
-                <div x-show="events.length === 0 && (!riskObject || riskObject.current_score === 0)" class="empty-state">
-                    <p>No historical data available for risk trend chart</p>
+                <div x-show="events.length === 0 && (!riskObject || riskObject.current_score === 0)" class="empty-state compact">
+                    <p>No historical data available</p>
                 </div>
                 
                 <!-- Risk Score History Table -->
-                <div class="risk-score-history" style="margin-top: 2rem;">
-                    <h4>Risk Score History</h4>
-                    <div x-show="calculateRiskScoreHistory().length === 0" class="empty-state">
+                <div class="risk-score-history compact">
+                    <h4>Score History</h4>
+                    <div x-show="calculateRiskScoreHistory().length === 0" class="empty-state compact">
                         <p>No risk score history available</p>
                     </div>
-                    <table x-show="calculateRiskScoreHistory().length > 0">
+                    <table x-show="calculateRiskScoreHistory().length > 0" class="compact-table">
                         <thead>
                             <tr>
-                                <th>Timestamp</th>
-                                <th>Risk Score</th>
+                                <th>Time</th>
+                                <th>Score</th>
                                 <th>Change</th>
                                 <th>Event</th>
-                                <th>Risk Points</th>
+                                <th>Detection</th>
+                                <th>Points</th>
                             </tr>
                         </thead>
                         <tbody>
                             <template x-for="historyItem in calculateRiskScoreHistory()" :key="historyItem.timestamp.getTime()">
                                 <tr>
-                                    <td x-text="formatTimestamp(historyItem.timestamp)"></td>
+                                    <td class="time-cell" x-text="formatTimestamp(historyItem.timestamp)"></td>
                                     <td>
-                                        <span class="risk-score" 
+                                        <span class="risk-score compact" 
                                               :class="getRiskLevelClass(historyItem.score)"
                                               x-text="historyItem.score"></span>
                                     </td>
                                     <td>
-                                        <span class="score-change" 
+                                        <span class="score-change compact" 
                                               :class="historyItem.change > 0 ? 'score-increase' : (historyItem.change < 0 ? 'score-decrease' : 'score-neutral')"
                                               x-text="historyItem.change > 0 ? '+' + historyItem.change : historyItem.change"></span>
                                     </td>
-                                    <td>
-                                        <span x-show="historyItem.event" x-text="historyItem.event ? historyItem.event.raw_data : 'Current Score'"></span>
-                                        <span x-show="!historyItem.event" class="text-muted">Current Score</span>
+                                    <td class="event-cell">
+                                        <span x-show="historyItem.event" x-text="historyItem.event ? (historyItem.event.raw_data ? historyItem.event.raw_data.substring(0, 30) + '...' : 'Event') : ''"></span>
+                                        <span x-show="!historyItem.event" class="text-muted">Current</span>
                                     </td>
-                                    <td>
+                                    <td class="name-cell">
+                                        <span x-show="historyItem.event" x-text="historyItem.event ? getDetectionName(historyItem.event.detection_id) : '-'"></span>
+                                        <span x-show="!historyItem.event" class="text-muted">-</span>
+                                    </td>
+                                    <td class="points-cell">
                                         <span x-show="historyItem.event" x-text="historyItem.event ? historyItem.event.risk_points : '-'"></span>
                                         <span x-show="!historyItem.event" class="text-muted">-</span>
                                     </td>
@@ -140,27 +143,27 @@
             </div>
             
             <!-- Risk Alerts -->
-            <div x-show="!loading && riskAlerts.length > 0" class="risk-alerts">
+            <div x-show="!loading && riskAlerts.length > 0" class="risk-alerts compact">
                 <h3>Risk Alerts</h3>
-                <table>
+                <table class="compact-table">
                     <thead>
                         <tr>
-                            <th>Alert ID</th>
-                            <th>Triggered At</th>
-                            <th>Total Score</th>
+                            <th>ID</th>
+                            <th>Triggered</th>
+                            <th>Score</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="alert in riskAlerts" :key="alert.id">
                             <tr>
-                                <td x-text="alert.id"></td>
-                                <td x-text="formatTimestamp(alert.triggered_at)"></td>
+                                <td class="id-cell" x-text="alert.id"></td>
+                                <td class="time-cell" x-text="formatTimestamp(alert.triggered_at)"></td>
                                 <td>
-                                    <span class="risk-score" x-text="alert.total_score"></span>
+                                    <span class="risk-score compact" x-text="alert.total_score"></span>
                                 </td>
-                                <td>
-                                    <button class="btn btn-secondary btn-sm" @click="alert('Alert details not implemented yet')">View Details</button>
+                                <td class="actions-cell">
+                                    <button class="btn-link" @click="alert('Alert details not implemented yet')">View</button>
                                 </td>
                             </tr>
                         </template>
@@ -169,18 +172,18 @@
             </div>
             
             <!-- Associated Events -->
-            <div x-show="!loading" class="associated-events">
+            <div x-show="!loading" class="associated-events compact">
                 <h3>Associated Events</h3>
-                <div x-show="events.length === 0" class="empty-state">
+                <div x-show="events.length === 0" class="empty-state compact">
                     No events found for this risk object.
                 </div>
-                <table x-show="events.length > 0">
+                <table x-show="events.length > 0" class="compact-table">
                     <thead>
                         <tr>
-                            <th>Event ID</th>
-                            <th>Detection ID</th>
-                            <th>Timestamp</th>
-                            <th>Risk Points</th>
+                            <th>ID</th>
+                            <th>Detection</th>
+                            <th>Time</th>
+                            <th>Points</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -188,18 +191,18 @@
                     <tbody>
                         <template x-for="event in events" :key="event.id">
                             <tr>
-                                <td x-text="event.id"></td>
-                                <td x-text="event.detection_id"></td>
-                                <td x-text="formatTimestamp(event.timestamp)"></td>
-                                <td>
-                                    <span class="risk-points" x-text="event.risk_points"></span>
+                                <td class="id-cell" x-text="event.id"></td>
+                                <td class="name-cell" x-text="getDetectionName(event.detection_id)"></td>
+                                <td class="time-cell" x-text="formatTimestamp(event.timestamp)"></td>
+                                <td class="points-cell">
+                                    <span class="risk-points compact" x-text="event.risk_points"></span>
                                 </td>
                                 <td>
                                     <span x-text="getFalsePositiveText(event.is_false_positive)" 
-                                          :class="getFalsePositiveClass(event.is_false_positive)"></span>
+                                          :class="getFalsePositiveClass(event.is_false_positive) + ' compact-badge'"></span>
                                 </td>
-                                <td>
-                                    <a :href="`events-detail.html?id=${event.id}`" class="btn btn-secondary btn-sm">View Details</a>
+                                <td class="actions-cell">
+                                    <a :href="`events-detail.html?id=${event.id}`" class="btn-link">View</a>
                                 </td>
                             </tr>
                         </template>
@@ -216,63 +219,86 @@
     </footer>
 
     <style>
-        .card-header {
+        /* Compact header */
+        .card-header.compact {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
         
-        .loading-state {
-            text-align: center;
-            padding: 2rem;
-            color: #666;
-        }
-        
-        .risk-object-info, .risk-trend, .risk-alerts, .associated-events {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .risk-object-info h3, .risk-trend h3, .risk-alerts h3, .associated-events h3 {
-            margin-top: 0;
-            margin-bottom: 1rem;
-            color: var(--primary-color);
-        }
-        
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-        
-        .info-item {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .info-item label {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 0.25rem;
-        }
-        
-        .info-item span, .info-item div {
-            color: #666;
+        .card-header.compact h2 {
+            font-size: 1.3rem;
             margin: 0;
         }
         
-        .entity-info {
+        .header-actions {
             display: flex;
-            align-items: center;
             gap: 0.5rem;
         }
         
+        .btn-sm {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Compact loading */
+        .loading-state.compact {
+            text-align: center;
+            padding: 1rem;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        
+        /* Compact sections */
+        .risk-object-info.compact, .risk-trend.compact, 
+        .risk-alerts.compact, .associated-events.compact {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .compact h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .compact h4 {
+            margin: 0.75rem 0 0.5rem 0;
+            font-size: 0.9rem;
+            color: var(--primary-color);
+        }
+        
+        /* Compact info row */
+        .info-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.2rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .info-item.inline {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .info-item.inline label {
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+            font-size: 0.85rem;
+        }
+        
+        .info-item.inline span {
+            color: #666;
+            font-size: 0.85rem;
+        }
+        
         .entity-icon {
-            font-size: 1.2rem;
+            font-size: 1rem;
         }
         
         .entity-value {
@@ -280,21 +306,24 @@
             color: #333;
         }
         
-        .risk-score {
+        /* Compact risk score */
+        .risk-score.compact {
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 0.9rem;
             color: #dc3545;
         }
         
-        .risk-points {
+        .risk-points.compact {
             font-weight: 600;
             color: #fd7e14;
+            font-size: 0.85rem;
         }
         
-        .risk-level {
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
+        /* Compact risk level */
+        .risk-level.compact {
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
         }
@@ -324,71 +353,141 @@
             color: #383d41;
         }
         
-        .badge {
+        /* Compact badges */
+        .badge-compact, .compact-badge {
             display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
         }
         
-        .badge-secondary {
+        .badge-secondary, .badge-compact.badge-secondary {
             background-color: #e2e3e5;
             color: #383d41;
         }
         
-        .badge-success {
+        .badge-success, .badge-compact.badge-success {
             background-color: #d4edda;
             color: #155724;
         }
         
-        .badge-warning {
+        .badge-warning, .badge-compact.badge-warning {
             background-color: #fff3cd;
             color: #856404;
         }
         
-        .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
+        /* Compact chart */
+        .chart-container.compact {
+            background-color: white;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            height: 250px;
+            position: relative;
         }
         
-        .empty-state {
-            padding: 1rem;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            text-align: center;
-            color: #6c757d;
+        .chart-container.compact canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
         }
         
-        table {
+        /* Compact table */
+        .compact-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 1rem;
+            font-size: 0.85rem;
         }
         
-        th, td {
-            padding: 0.75rem;
+        .compact-table th {
+            background-color: white;
+            padding: 0.4rem 0.5rem;
             text-align: left;
+            font-weight: 600;
+            font-size: 0.8rem;
             border-bottom: 1px solid #dee2e6;
         }
         
-        th {
+        .compact-table td {
+            padding: 0.35rem 0.5rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .compact-table tr:hover {
             background-color: #f8f9fa;
-            font-weight: 600;
         }
         
-        .risk-score-history h4 {
-            margin-bottom: 1rem;
+        /* Cell styles */
+        .id-cell {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .name-cell {
+            font-weight: 500;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .time-cell {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .event-cell {
+            font-size: 0.8rem;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .points-cell {
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .actions-cell {
+            white-space: nowrap;
+        }
+        
+        /* Link buttons */
+        .btn-link {
             color: var(--primary-color);
-            font-size: 1.1rem;
+            text-decoration: none;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.4rem;
+            cursor: pointer;
+            background: none;
+            border: none;
         }
         
-        .score-change {
+        .btn-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Compact empty state */
+        .empty-state.compact {
+            padding: 0.75rem;
+            background-color: white;
+            border-radius: 4px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+        
+        /* Compact score change */
+        .score-change.compact {
             font-weight: 600;
-            padding: 0.2rem 0.4rem;
+            padding: 0.1rem 0.3rem;
             border-radius: 3px;
-            font-size: 0.9rem;
+            font-size: 0.75rem;
         }
         
         .score-increase {
@@ -407,22 +506,30 @@
         }
         
         .text-muted {
-            color: #6c757d;
+            color: #999;
             font-style: italic;
+            font-size: 0.8rem;
         }
         
-        .chart-container {
-            background-color: white;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
+        /* Risk score history */
+        .risk-score-history.compact {
+            margin-top: 0.75rem;
         }
         
-        .chart-container canvas {
-            display: block;
-            width: 100% !important;
-            height: 100% !important;
+        @media (max-width: 768px) {
+            .info-row {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .compact-table {
+                font-size: 0.75rem;
+            }
+            
+            .compact-table th,
+            .compact-table td {
+                padding: 0.25rem 0.3rem;
+            }
         }
     </style>
 </body>

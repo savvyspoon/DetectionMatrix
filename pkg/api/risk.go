@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -28,15 +29,16 @@ func NewRiskHandler(engine *risk.Engine, repo *risk.Repository) *RiskHandler {
 func (h *RiskHandler) ProcessEvent(w http.ResponseWriter, r *http.Request) {
 	// Parse request body with custom structure to handle entity_type and entity_value
 	var requestData struct {
-		DetectionID     int64     `json:"detection_id"`
-		EntityID        int64     `json:"entity_id,omitempty"`
-		EntityType      string    `json:"entity_type,omitempty"`
-		EntityValue     string    `json:"entity_value,omitempty"`
-		Timestamp       time.Time `json:"timestamp,omitempty"`
-		RawData         string    `json:"raw_data,omitempty"`
-		Context         string    `json:"context,omitempty"`
-		RiskPoints      int       `json:"risk_points"`
-		IsFalsePositive bool      `json:"is_false_positive"`
+		DetectionID     int64                `json:"detection_id"`
+		EntityID        int64                `json:"entity_id,omitempty"`
+		EntityType      string               `json:"entity_type,omitempty"`
+		EntityValue     string               `json:"entity_value,omitempty"`
+		RiskObject      *models.RiskObject   `json:"risk_object,omitempty"`
+		Timestamp       time.Time            `json:"timestamp,omitempty"`
+		RawData         string               `json:"raw_data,omitempty"`
+		Context         string               `json:"context,omitempty"`
+		RiskPoints      int                  `json:"risk_points"`
+		IsFalsePositive bool                 `json:"is_false_positive"`
 	}
 	
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -60,8 +62,12 @@ func (h *RiskHandler) ProcessEvent(w http.ResponseWriter, r *http.Request) {
 		event.Timestamp = time.Now()
 	}
 	
-	// If entity_type and entity_value are provided, create RiskObject
-	if requestData.EntityType != "" && requestData.EntityValue != "" {
+	// Handle RiskObject from different sources
+	if requestData.RiskObject != nil {
+		// If RiskObject is directly provided in the request
+		event.RiskObject = requestData.RiskObject
+	} else if requestData.EntityType != "" && requestData.EntityValue != "" {
+		// If entity_type and entity_value are provided, create RiskObject
 		event.RiskObject = &models.RiskObject{
 			EntityType:  models.EntityType(requestData.EntityType),
 			EntityValue: requestData.EntityValue,
@@ -76,7 +82,7 @@ func (h *RiskHandler) ProcessEvent(w http.ResponseWriter, r *http.Request) {
 		event.EntityID = requestData.EntityID
 		event.RiskObject = riskObj
 	} else {
-		http.Error(w, "Either entity_id or entity_type/entity_value must be provided", http.StatusBadRequest)
+		http.Error(w, "Either entity_id, risk_object, or entity_type/entity_value must be provided", http.StatusBadRequest)
 		return
 	}
 
@@ -170,6 +176,7 @@ func (h *RiskHandler) GetRiskObjectByEntity(w http.ResponseWriter, r *http.Reque
 func (h *RiskHandler) ListRiskObjects(w http.ResponseWriter, r *http.Request) {
 	// Check for high risk filter
 	thresholdStr := r.URL.Query().Get("threshold")
+	limitStr := r.URL.Query().Get("limit")
 
 	var objects []*models.RiskObject
 	var err error
@@ -192,6 +199,18 @@ func (h *RiskHandler) ListRiskObjects(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Error retrieving risk objects", http.StatusInternalServerError)
 		return
+	}
+
+	// Apply limit if provided
+	if limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit < 0 {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			return
+		}
+		if limit > 0 && len(objects) > limit {
+			objects = objects[:limit]
+		}
 	}
 
 	// Return risk objects as JSON
@@ -504,6 +523,12 @@ func (h *RiskHandler) GetEventsForAlert(w http.ResponseWriter, r *http.Request) 
 	// Get events for alert from repository
 	events, err := h.repo.GetEventsForAlert(id)
 	if err != nil {
+		// If alert not found, return empty list
+		if err.Error() == fmt.Sprintf("risk alert not found: %d", id) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]*models.Event{})
+			return
+		}
 		http.Error(w, "Error retrieving events for alert", http.StatusInternalServerError)
 		return
 	}

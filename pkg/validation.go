@@ -206,17 +206,18 @@ func ValidateMitreTechnique(technique *models.MitreTechnique) error {
 	
 	// Validate sub-technique logic
 	if technique.IsSubTechnique {
+		// Check if this looks like a parent technique ID (no dot)
+		if !strings.Contains(technique.ID, ".") {
+			return fmt.Errorf("parent technique cannot be marked as sub-technique")
+		}
+		// Sub-techniques must have parent
 		if technique.SubTechniqueOf == "" {
 			return fmt.Errorf("sub-technique must have parent technique ID")
 		}
-		// Sub-techniques should have .XXX in their ID
-		if !strings.Contains(technique.ID, ".") {
-			return fmt.Errorf("sub-technique ID must contain dot notation")
-		}
 	} else {
-		// Parent techniques shouldn't be marked as sub-techniques
-		if !strings.Contains(technique.ID, ".") && technique.IsSubTechnique {
-			return fmt.Errorf("parent technique cannot be marked as sub-technique")
+		// Parent techniques should not have SubTechniqueOf set
+		if technique.SubTechniqueOf != "" {
+			return fmt.Errorf("parent technique cannot have SubTechniqueOf field set")
 		}
 	}
 	

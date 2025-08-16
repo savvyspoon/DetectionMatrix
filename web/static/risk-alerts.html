@@ -52,7 +52,7 @@
             <div class="filters compact">
                 <div class="filter-row">
                     <div class="form-group" x-show="!isPaginated">
-                        <input type="text" id="search" x-model="searchTerm" @input="applyFilters()" placeholder="Search..." class="compact-input">
+                        <input type="text" id="search" x-model="searchTerm" @input="applySortingAndFiltering()" placeholder="Search..." class="compact-input">
                     </div>
                     <div class="form-group">
                         <select id="status-filter" x-model="statusFilter" @change="currentPage = 1; fetchAlerts()" class="compact-select">
@@ -65,6 +65,12 @@
                             <option value="Closed">Closed</option>
                         </select>
                     </div>
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" x-model="hideClosed" @change="applySortingAndFiltering()" class="compact-checkbox">
+                            <span>Hide Closed</span>
+                        </label>
+                    </div>
                     <div class="form-group" x-show="isPaginated">
                         <select id="page-size" x-model="pageSize" @change="changePageSize()" class="compact-select" style="width: 60px;">
                             <option value="10">10</option>
@@ -74,7 +80,7 @@
                         </select>
                     </div>
                     <div class="form-group" x-show="!isPaginated">
-                        <select id="sort-by" x-model="sortBy" @change="applyFilters()" class="compact-select">
+                        <select id="sort-by" x-model="sortBy" @change="applySortingAndFiltering()" class="compact-select">
                             <option value="triggered_at">Date</option>
                             <option value="total_score">Score</option>
                             <option value="entity">Entity</option>
@@ -82,7 +88,7 @@
                         </select>
                     </div>
                     <div class="form-group" x-show="!isPaginated">
-                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()" class="compact-select" style="width: 60px;">
+                        <select id="sort-order" x-model="sortOrder" @change="applySortingAndFiltering()" class="compact-select" style="width: 60px;">
                             <option value="desc">↓</option>
                             <option value="asc">↑</option>
                         </select>
@@ -219,6 +225,32 @@
         
         .compact-select {
             min-width: 90px;
+        }
+        
+        /* Checkbox group */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #333;
+            user-select: none;
+        }
+        
+        .compact-checkbox {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+        
+        .checkbox-label:hover {
+            color: var(--primary-color);
         }
         
         /* Compact table */

@@ -1,6 +1,6 @@
-# RiskMatrix
+# DetectionMatrix
 
-RiskMatrix is a lightweight, risk-based detection management platform that allows security teams to track, manage, and improve security detections through lifecycle tracking, MITRE ATT&CK mapping, false positive feedback, and risk scoring.
+DetectionMatrix (formerly RiskMatrix) is a lightweight, risk-based detection management platform that allows security teams to track, manage, and improve security detections through lifecycle tracking, MITRE ATT&CK mapping, false positive feedback, and risk scoring.
 
 ## Features
 
@@ -21,9 +21,10 @@ RiskMatrix is a lightweight, risk-based detection management platform that allow
 ## Project Structure
 
 ```
-riskmatrix/
+DetectionMatrix/
 ├── cmd/                  # Application entry points
-│   └── server/           # Main server application
+│   ├── server/           # Main server application
+│   └── import-mitre/     # MITRE ATT&CK data importer
 ├── pkg/                  # Public packages
 │   ├── api/              # API handlers
 │   ├── database/         # Database connection and schema
@@ -38,6 +39,9 @@ riskmatrix/
 │   └── templates/        # HTML templates
 ├── configs/              # Configuration files
 ├── data/                 # Data storage (SQLite database)
+├── scripts/              # Build and test scripts
+│   ├── build/            # Build scripts for different platforms
+│   └── test/             # Test scripts
 └── docs/                 # Documentation
 ```
 
@@ -45,7 +49,7 @@ riskmatrix/
 
 ### Prerequisites
 
-- Go 1.24 or higher
+- Go 1.23 or higher
 - SQLite
 - C compiler:
   - **Windows**: MinGW-w64 or MSYS2 with GCC
@@ -56,8 +60,8 @@ riskmatrix/
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/riskmatrix.git
-   cd riskmatrix
+   git clone https://github.com/yourusername/detectionmatrix.git
+   cd DetectionMatrix
    ```
 
 2. Build the application:
@@ -97,12 +101,36 @@ riskmatrix/
 
 **Note**: Using Docker is recommended if you don't want to install a C compiler or if you're having issues with CGO. The Dockerfile already has all necessary dependencies configured.
 
+#### Quick Start with Docker Compose
+
 1. Build and run using Docker Compose:
    ```
    docker-compose up -d
    ```
 
 2. Access the application at http://localhost:8080
+
+#### Building Docker Image Manually
+
+1. Use the provided build script (supports ARM64/Apple Silicon):
+   ```bash
+   # Auto-detect platform and build
+   ./docker-build.sh
+   
+   # Build for specific platform
+   ./docker-build.sh -p linux/arm64
+   
+   # Build multi-platform image
+   ./docker-build.sh -p multi
+   
+   # Set up Docker buildx for multi-platform builds
+   ./docker-build.sh --setup-buildx
+   ```
+
+2. Run the container:
+   ```bash
+   docker run -p 8080:8080 riskmatrix:latest
+   ```
 
 ## API Documentation
 
@@ -139,11 +167,42 @@ RiskMatrix provides a RESTful API for interacting with the platform:
 
 Configuration is stored in `configs/config.json` and includes settings for:
 
-- Server configuration
-- Database connection
-- Risk engine parameters
-- Logging
+- Server configuration (port, address)
+- Database connection (SQLite path)
+- Risk engine parameters (decay interval, factor, thresholds)
+- Logging levels and output
 - Security settings
+
+### Command Line Options
+
+```bash
+# Run with custom database path
+./server -db /path/to/custom.db
+
+# Run on different port
+./server -addr :9000
+
+# Combine options
+./server -db /data/detections.db -addr :8090
+```
+
+## Testing
+
+The project includes comprehensive test scripts in the `scripts/test/` directory:
+
+```bash
+# Run basic functionality test
+./scripts/test/simple-test.ps1
+
+# Run comprehensive alert workflow test
+./scripts/test/comprehensive-alert-test.ps1
+
+# Test contributing events functionality
+./scripts/test/test-contributing-events.ps1
+
+# Run Go unit tests
+go test ./...
+```
 
 ## License
 
@@ -160,6 +219,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
   - **Solution**: Install a C compiler as mentioned in the prerequisites section. Alternatively, use Docker which already has all dependencies configured.
 
 - **Windows-specific**: If you're having issues with MinGW or MSYS2, consider using Docker or WSL (Windows Subsystem for Linux) for a smoother experience.
+
+- **Docker build stalling**: If the Docker build hangs, ensure you're using the correct Go version (1.23, not 1.24) in the Dockerfile.
+
+- **Apple Silicon/ARM64**: Use the `./docker-build.sh` script which automatically detects and handles ARM64 architecture.
 
 ## Contributing
 
