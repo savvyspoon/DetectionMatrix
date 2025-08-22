@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS detections (
     testing_description TEXT,
     event_count_last_30_days INTEGER NOT NULL DEFAULT 0,
     false_positives_last_30_days INTEGER NOT NULL DEFAULT 0,
+    class_id INTEGER REFERENCES detection_classes(id),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

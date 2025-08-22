@@ -41,10 +41,12 @@ class APIUtils {
         });
         
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error:', errorText);
             throw new Error(`Post failed! status: ${response.status}`);
         }
         
-        return response;
+        return await response.json();
     }
 }
 
