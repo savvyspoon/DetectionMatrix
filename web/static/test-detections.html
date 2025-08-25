@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Detections</title>
+    <script src="js/utils.js"></script>
+    <script src="js/detections-list.js"></script>
+</head>
+<body>
+    <h1>Testing Detections API</h1>
+    <div id="result"></div>
+    
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            try {
+                resultDiv.innerHTML = 'Fetching detections...';
+                const data = await DetectionsAPI.fetchDetections();
+                resultDiv.innerHTML = `
+                    <p>Success! Found ${data.items ? data.items.length : 0} detections</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `Error: ${error.message}`;
+                console.error(error);
+            }
+        }
+        
+        // Run test when page loads
+        testAPI();
+    </script>
+</body>
+</html>

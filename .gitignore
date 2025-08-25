@@ -51,6 +51,8 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+.gocache
+.gopath
 
 # Windows
 desktop.ini

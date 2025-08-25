@@ -6,29 +6,11 @@
     <title>Detection Details - RiskMatrix</title>
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
-    <script src="js/utils.js"></script>
+    <script src="js/utils.js?v=1.1"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-    <header>
-        <div class="container">
-            <div class="logo">
-                <h1>RiskMatrix</h1>
-            </div>
-            <nav>
-                <ul>
-                    <li><a href="index.html">Dashboard</a></li>
-                    <li><a href="detections-list.html" class="active">Detections</a></li>
-                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
-                    <li><a href="datasources.html">Data Sources</a></li>
-                    <li><a href="events.html">Events</a></li>
-                    <li><a href="risk-objects.html">Risk Objects</a></li>
-                    <li><a href="/alerts">Risk Alerts</a></li>
-                    <li><a href="settings.html">Settings</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+    <div hx-get="/header.html" hx-trigger="load"></div>
 
     <main class="container">
         <div class="card" x-data="detectionDetailData()" x-init="init()">
@@ -186,11 +168,7 @@
         </div>
     </main>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
-        </div>
-    </footer>
+    <div hx-get="/footer.html" hx-trigger="load"></div>
 
     <script>
         function detectionDetailData() {
@@ -255,7 +233,15 @@
                         try {
                             const dsResp = await fetch('/api/datasources');
                             if (dsResp.ok) {
-                                this.dataSources = await dsResp.json();
+                                const data = await dsResp.json();
+                                // Handle ListResponse structure from API
+                                if (data && typeof data === 'object' && 'items' in data) {
+                                    this.dataSources = Array.isArray(data.items) ? data.items : [];
+                                } else if (Array.isArray(data)) {
+                                    this.dataSources = data;
+                                } else {
+                                    this.dataSources = [];
+                                }
                             }
                         } catch (err) {
                             console.warn('Could not load data sources:', err);
@@ -265,7 +251,15 @@
                         try {
                             const mitreResp = await fetch('/api/mitre/techniques');
                             if (mitreResp.ok) {
-                                this.mitreTechniques = await mitreResp.json();
+                                const data = await mitreResp.json();
+                                // Handle ListResponse structure from API
+                                if (data && typeof data === 'object' && 'items' in data) {
+                                    this.mitreTechniques = Array.isArray(data.items) ? data.items : [];
+                                } else if (Array.isArray(data)) {
+                                    this.mitreTechniques = data;
+                                } else {
+                                    this.mitreTechniques = [];
+                                }
                             }
                         } catch (err) {
                             console.warn('Could not load MITRE techniques:', err);

@@ -32,7 +32,7 @@ func main() {
 
 	// Create and start server
 	server := api.NewServer(db)
-	
+
 	// Start risk decay process
 	stopDecay := server.StartRiskDecayProcess()
 	defer close(stopDecay)

@@ -2,7 +2,9 @@ package middleware
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -126,26 +128,48 @@ func (rl *RateLimiter) cleanup() {
 }
 
 // getClientIP extracts the client IP from the request
+// It properly handles proxy headers and validates IP addresses
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header
+	// Check X-Forwarded-For header (leftmost IP is original client)
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff != "" {
-		// Take the first IP if multiple are present
-		if idx := len(xff) - 1; idx >= 0 {
-			for i := idx; i >= 0; i-- {
-				if xff[i] == ',' {
-					return xff[i+1:]
-				}
+		// Parse comma-separated list and take the first (original client) IP
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			// Trim whitespace and validate
+			ip := strings.TrimSpace(ips[0])
+			if isValidIP(ip) {
+				return ip
 			}
-			return xff
 		}
 	}
 
 	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+		ip := strings.TrimSpace(xri)
+		if isValidIP(ip) {
+			return ip
+		}
 	}
 
-	// Fall back to RemoteAddr
+	// Fall back to RemoteAddr (remove port if present)
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	
+	// If no port in RemoteAddr, return as-is
 	return r.RemoteAddr
+}
+
+// isValidIP validates an IP address string
+func isValidIP(ip string) bool {
+	// Check if it's a valid IP address
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	
+	// Optionally reject private/local IPs if needed
+	// This depends on your deployment scenario
+	return true
 }

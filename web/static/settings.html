@@ -234,25 +234,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-    <header>
-        <div class="container">
-            <div class="logo">
-                <h1>RiskMatrix</h1>
-            </div>
-            <nav>
-                <ul>
-                    <li><a href="index.html">Dashboard</a></li>
-                    <li><a href="detections-list.html">Detections</a></li>
-                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
-                    <li><a href="datasources.html">Data Sources</a></li>
-                    <li><a href="events.html">Events</a></li>
-                    <li><a href="risk-objects.html">Risk Objects</a></li>
-                    <li><a href="risk-alerts.html">Risk Alerts</a></li>
-                    <li><a href="settings.html" class="active">Settings</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+    <div hx-get="/header.html" hx-trigger="load"></div>
 
     <main class="settings-container">
         <div class="settings-section" x-data="settingsData()" x-init="init()">
@@ -381,11 +363,7 @@
         </div>
     </main>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
-        </div>
-    </footer>
+    <div hx-get="/footer.html" hx-trigger="load"></div>
 
     <script src="js/utils.js"></script>
     <script src="js/settings.js"></script>

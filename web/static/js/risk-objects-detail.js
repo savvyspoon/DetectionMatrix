@@ -89,9 +89,9 @@ function riskObjectDetailData() {
         
         async fetchDetections() {
             try {
-                const detectionsList = await RiskObjectDetailAPI.fetchDetections();
+                const detectionsResp = await RiskObjectDetailAPI.fetchDetections();
                 this.detections = {};
-                detectionsList.forEach(d => {
+                (detectionsResp.items || detectionsResp || []).forEach(d => {
                     this.detections[d.id] = d;
                 });
             } catch (error) {

@@ -57,8 +57,8 @@ function eventAddData() {
                     EventsAddAPI.fetchRiskObjects()
                 ]);
                 
-                this.detections = detections || [];
-                this.riskObjects = riskObjects || [];
+                this.detections = (detections.items || detections || []);
+                this.riskObjects = (riskObjects.items || riskObjects || []);
             } catch (error) {
                 console.error('Error loading data:', error);
                 this.errorMessage = 'Error loading form data';

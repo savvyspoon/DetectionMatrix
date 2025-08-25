@@ -19,9 +19,9 @@ const (
 type Severity string
 
 const (
-	SeverityLow    Severity = "low"
-	SeverityMedium Severity = "medium"
-	SeverityHigh   Severity = "high"
+	SeverityLow      Severity = "low"
+	SeverityMedium   Severity = "medium"
+	SeverityHigh     Severity = "high"
 	SeverityCritical Severity = "critical"
 )
 
@@ -49,23 +49,23 @@ type DetectionClass struct {
 
 // Detection represents a security detection rule
 type Detection struct {
-	ID                         int64           `json:"id"`
-	Name                       string          `json:"name"`
-	Description                string          `json:"description"`
-	Query                      string          `json:"query,omitempty"`
-	Status                     DetectionStatus `json:"status"`
-	Severity                   Severity        `json:"severity"`
-	RiskPoints                 int             `json:"risk_points"`
-	PlaybookLink               string          `json:"playbook_link,omitempty"`
-	Owner                      string          `json:"owner,omitempty"`
-	RiskObject                 RiskObjectType  `json:"risk_object,omitempty"`
-	TestingDescription         string          `json:"testing_description,omitempty"`
-	EventCountLast30Days       int             `json:"event_count_last_30_days"`
-	FalsePositivesLast30Days   int             `json:"false_positives_last_30_days"`
-	ClassID                    *int64          `json:"class_id,omitempty"`
-	CreatedAt                  time.Time       `json:"created_at"`
-	UpdatedAt                  time.Time       `json:"updated_at"`
-	
+	ID                       int64           `json:"id"`
+	Name                     string          `json:"name"`
+	Description              string          `json:"description"`
+	Query                    string          `json:"query,omitempty"`
+	Status                   DetectionStatus `json:"status"`
+	Severity                 Severity        `json:"severity"`
+	RiskPoints               int             `json:"risk_points"`
+	PlaybookLink             string          `json:"playbook_link,omitempty"`
+	Owner                    string          `json:"owner,omitempty"`
+	RiskObject               RiskObjectType  `json:"risk_object,omitempty"`
+	TestingDescription       string          `json:"testing_description,omitempty"`
+	EventCountLast30Days     int             `json:"event_count_last_30_days"`
+	FalsePositivesLast30Days int             `json:"false_positives_last_30_days"`
+	ClassID                  *int64          `json:"class_id,omitempty"`
+	CreatedAt                time.Time       `json:"created_at"`
+	UpdatedAt                time.Time       `json:"updated_at"`
+
 	// Relationships
 	Class           *DetectionClass  `json:"class,omitempty"`
 	MitreTechniques []MitreTechnique `json:"mitre_techniques,omitempty"`
@@ -81,13 +81,13 @@ type DetectionRepository interface {
 	CreateDetection(detection *Detection) error
 	UpdateDetection(detection *Detection) error
 	DeleteDetection(id int64) error
-	
+
 	// Relationship operations
 	AddMitreTechnique(detectionID int64, mitreID string) error
 	RemoveMitreTechnique(detectionID int64, mitreID string) error
 	AddDataSource(detectionID int64, dataSourceID int64) error
 	RemoveDataSource(detectionID int64, dataSourceID int64) error
-	
+
 	// Detection Class operations
 	GetDetectionClass(id int64) (*DetectionClass, error)
 	ListDetectionClasses() ([]*DetectionClass, error)
@@ -95,7 +95,7 @@ type DetectionRepository interface {
 	UpdateDetectionClass(class *DetectionClass) error
 	DeleteDetectionClass(id int64) error
 	ListDetectionsByClass(classID int64) ([]*Detection, error)
-	
+
 	// Analytics
 	GetDetectionCount() (int, error)
 	GetDetectionCountByStatus() (map[DetectionStatus]int, error)

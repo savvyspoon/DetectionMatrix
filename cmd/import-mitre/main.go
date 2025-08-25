@@ -35,8 +35,8 @@ func main() {
 
 	// Create a new CSV reader
 	reader := csv.NewReader(file)
-	reader.Comma = '\t' // Set delimiter to tab
-	reader.LazyQuotes = true // Handle quotes in the data
+	reader.Comma = '\t'         // Set delimiter to tab
+	reader.LazyQuotes = true    // Handle quotes in the data
 	reader.FieldsPerRecord = -1 // Allow variable number of fields
 
 	// Read the header row
@@ -147,16 +147,16 @@ func splitAndTrim(s string, delimiter string) []string {
 	if s == "" {
 		return []string{}
 	}
-	
+
 	parts := strings.Split(s, delimiter)
 	result := make([]string, 0, len(parts))
-	
+
 	for _, part := range parts {
 		trimmed := strings.TrimSpace(part)
 		if trimmed != "" {
 			result = append(result, trimmed)
 		}
 	}
-	
+
 	return result
 }

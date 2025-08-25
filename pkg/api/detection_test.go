@@ -122,7 +122,7 @@ func TestDetectionHandler_ListDetections(t *testing.T) {
 
 	// Create multiple test detections
 	createTestDetection(t, db)
-	
+
 	// Create another detection with different status
 	repo := detection.NewRepository(db)
 	detection2 := &models.Detection{
@@ -180,14 +180,19 @@ func TestDetectionHandler_ListDetections(t *testing.T) {
 				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
 			}
 
-			var detections []*models.Detection
-			err := json.NewDecoder(w.Body).Decode(&detections)
+			var resp struct {
+				Items    []*models.Detection `json:"items"`
+				Page     int                 `json:"page"`
+				PageSize int                 `json:"page_size"`
+				Total    int                 `json:"total"`
+			}
+			err := json.NewDecoder(w.Body).Decode(&resp)
 			if err != nil {
 				t.Errorf("Failed to decode response: %v", err)
 			}
 
-			if len(detections) != tt.expectedCount {
-				t.Errorf("Expected %d detections, got %d", tt.expectedCount, len(detections))
+			if len(resp.Items) != tt.expectedCount {
+				t.Errorf("Expected %d detections, got %d", tt.expectedCount, len(resp.Items))
 			}
 		})
 	}
@@ -430,7 +435,7 @@ func TestDetectionHandler_GetDetectionCountByStatus(t *testing.T) {
 
 	// Create test detections with different statuses
 	repo := detection.NewRepository(db)
-	
+
 	detection1 := &models.Detection{
 		Name:        "Draft Detection",
 		Description: "Draft",

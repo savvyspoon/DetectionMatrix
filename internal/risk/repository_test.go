@@ -110,7 +110,7 @@ func TestRepository_ListRiskObjects(t *testing.T) {
 
 	// Create first risk object
 	createTestRiskObject(t, db)
-	
+
 	// Create second risk object with different entity type
 	query := `INSERT INTO risk_objects (entity_type, entity_value, current_score, last_seen) VALUES (?, ?, ?, ?)`
 	now := time.Now()

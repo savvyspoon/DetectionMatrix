@@ -49,21 +49,13 @@ function riskAlertsData() {
         async fetchAlerts() {
             try {
                 const data = await RiskAlertsAPI.fetchAlerts(this.currentPage, this.pageSize, this.statusFilter);
-                
-                // Check if response is paginated or legacy format
-                if (data.alerts && data.total_count !== undefined) {
-                    // Paginated response
-                    this.alerts = data.alerts;
-                    this.totalCount = data.total_count;
-                    this.totalPages = data.total_pages;
-                    this.isPaginated = true;
-                } else if (Array.isArray(data)) {
-                    // Legacy array response
-                    this.alerts = data;
-                    this.isPaginated = false;
-                } else {
-                    this.alerts = [];
-                }
+                // Standard list envelope
+                this.alerts = data.items || [];
+                this.totalCount = data.total || (this.alerts ? this.alerts.length : 0);
+                this.currentPage = data.page || this.currentPage;
+                const pageSize = data.page_size || this.pageSize;
+                this.totalPages = Math.max(1, Math.ceil(this.totalCount / pageSize));
+                this.isPaginated = true;
                 
                 await this.fetchRiskObjects();
                 this.applySortingAndFiltering();
@@ -75,9 +67,9 @@ function riskAlertsData() {
         
         async fetchRiskObjects() {
             try {
-                const riskObjectsList = await RiskAlertsAPI.fetchRiskObjects();
+                const riskObjectsResp = await RiskAlertsAPI.fetchRiskObjects();
                 this.riskObjects = {};
-                riskObjectsList.forEach(ro => {
+                (riskObjectsResp.items || riskObjectsResp || []).forEach(ro => {
                     this.riskObjects[ro.id] = ro;
                 });
             } catch (error) {

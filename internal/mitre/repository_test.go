@@ -156,7 +156,7 @@ func TestRepository_ListMitreTechniques(t *testing.T) {
 
 	// Create multiple test techniques
 	technique1 := createTestMitreTechnique(t, repo)
-	
+
 	technique2 := &models.MitreTechnique{
 		ID:          "T1055",
 		Name:        "Process Injection",

@@ -7,30 +7,13 @@
     <link rel="stylesheet" href="css/normalize.css">
     <link rel="stylesheet" href="css/main.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/risk-objects.js"></script>
+    <script src="js/utils.js?v=1.1"></script>
+    <script src="js/risk-objects.js?v=1.1"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <header>
-        <div class="container">
-            <div class="logo">
-                <h1>RiskMatrix</h1>
-            </div>
-            <nav>
-                <ul>
-                    <li><a href="index.html">Dashboard</a></li>
-                    <li><a href="detections-list.html">Detections</a></li>
-                    <li><a href="mitre.html">MITRE ATT&CK</a></li>
-                    <li><a href="datasources.html">Data Sources</a></li>
-                    <li><a href="events.html">Events</a></li>
-                    <li><a href="risk-objects.html" class="active">Risk Objects</a></li>
-                    <li><a href="risk-alerts.html">Risk Alerts</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+    <div hx-get="/header.html" hx-trigger="load"></div>
 
     <main class="container">
         <div class="card" x-data="riskObjectsData()" x-init="init()">
@@ -44,7 +27,7 @@
             <!-- Risk Distribution Overview -->
             <div class="risk-overview compact">
                 <h3>Risk Distribution</h3>
-                <div class="chart-container" style="height: 150px;">
+                <div class="chart-container h-150">
                     <canvas id="riskDistributionChart"></canvas>
                 </div>
             </div>
@@ -64,7 +47,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <input type="number" id="risk-threshold" x-model="riskThreshold" @change="fetchRiskObjects()" placeholder="Min score" min="0" max="100" class="compact-input" style="width: 80px;">
+                        <input type="number" id="risk-threshold" x-model="riskThreshold" @change="fetchRiskObjects()" placeholder="Min score" min="0" max="100" class="compact-input w-80">
                     </div>
                     <div class="form-group">
                         <select id="sort-by" x-model="sortBy" @change="applyFilters()" class="compact-select">
@@ -75,7 +58,7 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()" class="compact-select" style="width: 70px;">
+                        <select id="sort-order" x-model="sortOrder" @change="applyFilters()" class="compact-select w-70">
                             <option value="desc">↓</option>
                             <option value="asc">↑</option>
                         </select>
@@ -137,11 +120,7 @@
         </div>
     </main>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
-        </div>
-    </footer>
+    <div hx-get="/footer.html" hx-trigger="load"></div>
 
     <style>
         /* Compact header */

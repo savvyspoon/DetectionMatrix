@@ -1,3 +1,4 @@
+//go:build test
 // +build test
 
 package database
@@ -22,12 +23,12 @@ type MockDB struct {
 func NewMockDB() (*MockDB, error) {
 	// Register mock driver
 	sql.Register("mock", &mockDriver{})
-	
+
 	db, err := sql.Open("mock", "mock://test")
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &MockDB{
 		DB:   db,
 		data: make(map[string][]map[string]interface{}),
@@ -188,7 +189,7 @@ func NewTestHelpers() (*TestHelpers, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &TestHelpers{DB: db}, nil
 }
 
@@ -220,13 +221,13 @@ func (h *TestHelpers) CreateTestRiskObject(entityType, entityValue string, score
 // CreateTestEvent creates a test event
 func (h *TestHelpers) CreateTestEvent(detectionID, entityID int64, riskPoints int) map[string]interface{} {
 	return map[string]interface{}{
-		"id":               1,
-		"detection_id":     detectionID,
-		"entity_id":        entityID,
-		"timestamp":        time.Now(),
-		"risk_points":      riskPoints,
+		"id":                1,
+		"detection_id":      detectionID,
+		"entity_id":         entityID,
+		"timestamp":         time.Now(),
+		"risk_points":       riskPoints,
 		"is_false_positive": false,
-		"raw_data":         `{"test": "data"}`,
+		"raw_data":          `{"test": "data"}`,
 	}
 }
 

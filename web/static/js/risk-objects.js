@@ -28,7 +28,15 @@ function riskObjectsData() {
         
         async fetchRiskObjects() {
             try {
-                this.riskObjects = await RiskObjectsAPI.fetchRiskObjects(this.riskThreshold);
+                const data = await RiskObjectsAPI.fetchRiskObjects(this.riskThreshold);
+                // Handle ListResponse structure from API
+                if (data && typeof data === 'object' && 'items' in data) {
+                    this.riskObjects = Array.isArray(data.items) ? data.items : [];
+                } else if (Array.isArray(data)) {
+                    this.riskObjects = data;
+                } else {
+                    this.riskObjects = [];
+                }
                 this.applySortingAndFiltering();
             } catch (error) {
                 console.error('Error fetching risk objects:', error);
@@ -41,6 +49,12 @@ function riskObjectsData() {
         },
         
         applySortingAndFiltering() {
+            // Ensure riskObjects is an array before spreading
+            if (!Array.isArray(this.riskObjects)) {
+                console.warn('RiskObjects is not an array:', this.riskObjects);
+                this.filteredRiskObjects = [];
+                return;
+            }
             let filtered = [...this.riskObjects];
             
             // Apply entity type filter

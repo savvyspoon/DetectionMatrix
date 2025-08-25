@@ -53,7 +53,7 @@ func TestNew_FileDatabase(t *testing.T) {
 func TestNew_InvalidPath(t *testing.T) {
 	// Try to create database in non-existent directory without creating it
 	invalidPath := "/non/existent/path/test.db"
-	
+
 	_, err := New(invalidPath)
 	if err == nil {
 		t.Error("Expected error for invalid database path")
@@ -70,7 +70,7 @@ func TestDatabase_SchemaInitialization(t *testing.T) {
 	// Test that all expected tables exist
 	expectedTables := []string{
 		"detections",
-		"mitre_techniques", 
+		"mitre_techniques",
 		"detection_mitre_map",
 		"data_sources",
 		"detection_datasource",
@@ -115,7 +115,7 @@ func TestDatabase_ForeignKeyConstraints(t *testing.T) {
 	// Test foreign key constraint enforcement
 	t.Run("Detection_to_MITRE_FK", func(t *testing.T) {
 		// Try to insert detection_mitre_map with non-existent detection
-		_, err := db.Exec("INSERT INTO detection_mitre_map (detection_id, mitre_id) VALUES (?, ?)", 
+		_, err := db.Exec("INSERT INTO detection_mitre_map (detection_id, mitre_id) VALUES (?, ?)",
 			99999, "T1059")
 		if err == nil {
 			t.Error("Expected foreign key constraint violation")
@@ -151,7 +151,7 @@ func TestDatabase_Indexes(t *testing.T) {
 
 	expectedIndexes := []string{
 		"idx_detections_status",
-		"idx_events_detection_id", 
+		"idx_events_detection_id",
 		"idx_events_entity_id",
 		"idx_events_timestamp",
 		"idx_risk_objects_entity",
@@ -186,7 +186,7 @@ func TestDatabase_DataTypes(t *testing.T) {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		"Test Detection", "Description", "SELECT * FROM logs", "production", "high", 50,
 		"https://playbook.example.com", "owner@example.com", "Host", "Testing notes", 10, 2, now, now)
-	
+
 	if err != nil {
 		t.Errorf("Failed to insert detection with all fields: %v", err)
 	}
@@ -331,14 +331,14 @@ func TestDatabase_Transactions(t *testing.T) {
 		}
 
 		// Insert data in transaction
-		_, err = tx.Exec("INSERT INTO data_sources (name, description) VALUES (?, ?)", 
+		_, err = tx.Exec("INSERT INTO data_sources (name, description) VALUES (?, ?)",
 			"Test Source 1", "Description 1")
 		if err != nil {
 			tx.Rollback()
 			t.Fatalf("Failed to insert in transaction: %v", err)
 		}
 
-		_, err = tx.Exec("INSERT INTO data_sources (name, description) VALUES (?, ?)", 
+		_, err = tx.Exec("INSERT INTO data_sources (name, description) VALUES (?, ?)",
 			"Test Source 2", "Description 2")
 		if err != nil {
 			tx.Rollback()
@@ -369,7 +369,7 @@ func TestDatabase_Transactions(t *testing.T) {
 		}
 
 		// Insert data in transaction
-		_, err = tx.Exec("INSERT INTO data_sources (name, description) VALUES (?, ?)", 
+		_, err = tx.Exec("INSERT INTO data_sources (name, description) VALUES (?, ?)",
 			"Rollback Test 1", "Description 1")
 		if err != nil {
 			tx.Rollback()

@@ -46,12 +46,14 @@ function eventsListData() {
             this.loading = true;
             try {
                 const data = await EventsAPI.fetchEvents(page, this.limit);
-                this.events = data.events || [];
-                this.currentPage = data.pagination.page;
-                this.totalPages = data.pagination.total_pages;
-                this.totalCount = data.pagination.total_count;
-                this.hasNext = data.pagination.has_next;
-                this.hasPrev = data.pagination.has_prev;
+                // Standard list envelope: { items, page, page_size, total }
+                this.events = data.items || [];
+                this.currentPage = data.page || 1;
+                const pageSize = data.page_size || this.limit;
+                this.totalCount = data.total || (this.events ? this.events.length : 0);
+                this.totalPages = Math.max(1, Math.ceil(this.totalCount / pageSize));
+                this.hasNext = (this.currentPage * pageSize) < this.totalCount;
+                this.hasPrev = this.currentPage > 1;
                 await this.fetchRelatedData();
                 this.applyFilters();
             } catch (error) {
@@ -64,16 +66,16 @@ function eventsListData() {
         async fetchRelatedData() {
             try {
                 // Fetch detections for lookup
-                const detectionsList = await EventsAPI.fetchDetections();
+                const detectionsResp = await EventsAPI.fetchDetections();
                 this.detections = {};
-                detectionsList.forEach(d => {
+                (detectionsResp.items || detectionsResp || []).forEach(d => {
                     this.detections[d.id] = d;
                 });
                 
                 // Fetch risk objects for lookup
-                const riskObjectsList = await EventsAPI.fetchRiskObjects();
+                const riskObjectsResp = await EventsAPI.fetchRiskObjects();
                 this.riskObjects = {};
-                riskObjectsList.forEach(ro => {
+                (riskObjectsResp.items || riskObjectsResp || []).forEach(ro => {
                     this.riskObjects[ro.id] = ro;
                 });
             } catch (error) {

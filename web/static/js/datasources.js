@@ -17,11 +17,11 @@ class DataSourcesAPI {
     }
 
     static async fetchDetectionsByDataSource(id) {
-        return await APIUtils.fetchAPI(`/api/datasources/id/${id}/detections`);
+        return await APIUtils.fetchAPI(`/api/datasources/${id}/detections`);
     }
 
     static async fetchTechniquesByDataSource(id) {
-        return await APIUtils.fetchAPI(`/api/datasources/id/${id}/techniques`);
+        return await APIUtils.fetchAPI(`/api/datasources/${id}/techniques`);
     }
 }
 
@@ -51,7 +51,15 @@ function dataSourcesData() {
         
         async fetchDataSources() {
             try {
-                this.dataSources = await DataSourcesAPI.fetchDataSources();
+                const data = await DataSourcesAPI.fetchDataSources();
+                // Handle ListResponse structure from API
+                if (data && typeof data === 'object' && 'items' in data) {
+                    this.dataSources = Array.isArray(data.items) ? data.items : [];
+                } else if (Array.isArray(data)) {
+                    this.dataSources = data;
+                } else {
+                    this.dataSources = [];
+                }
                 this.applyFilters();
             } catch (error) {
                 console.error('Error fetching data sources:', error);
@@ -60,6 +68,12 @@ function dataSourcesData() {
         },
         
         applyFilters() {
+            // Ensure dataSources is an array before spreading
+            if (!Array.isArray(this.dataSources)) {
+                console.warn('DataSources is not an array:', this.dataSources);
+                this.filteredDataSources = [];
+                return;
+            }
             let filtered = [...this.dataSources];
             
             if (this.searchTerm) {

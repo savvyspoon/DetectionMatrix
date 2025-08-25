@@ -26,12 +26,12 @@ func (r *Repository) GetRiskObjectByEntityTx(tx *sql.Tx, entityType models.Entit
 	query := `SELECT id, entity_type, entity_value, current_score, last_seen 
               FROM risk_objects 
               WHERE entity_type = ? AND entity_value = ?`
-	
+
 	row := tx.QueryRow(query, entityType, entityValue)
-	
+
 	var obj models.RiskObject
 	var lastSeen string
-	
+
 	err := row.Scan(
 		&obj.ID,
 		&obj.EntityType,
@@ -39,17 +39,17 @@ func (r *Repository) GetRiskObjectByEntityTx(tx *sql.Tx, entityType models.Entit
 		&obj.CurrentScore,
 		&lastSeen,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("risk object not found for %s '%s'", entityType, entityValue)
 		}
 		return nil, fmt.Errorf("error scanning risk object: %w", err)
 	}
-	
+
 	// Parse timestamp
 	obj.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
-	
+
 	return &obj, nil
 }
 
@@ -57,7 +57,7 @@ func (r *Repository) GetRiskObjectByEntityTx(tx *sql.Tx, entityType models.Entit
 func (r *Repository) CreateRiskObjectTx(tx *sql.Tx, obj *models.RiskObject) error {
 	query := `INSERT INTO risk_objects (entity_type, entity_value, current_score, last_seen) 
               VALUES (?, ?, ?, ?)`
-	
+
 	result, err := tx.Exec(
 		query,
 		obj.EntityType,
@@ -65,16 +65,16 @@ func (r *Repository) CreateRiskObjectTx(tx *sql.Tx, obj *models.RiskObject) erro
 		obj.CurrentScore,
 		obj.LastSeen.Format(time.RFC3339),
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error creating risk object: %w", err)
 	}
-	
+
 	id, err := result.LastInsertId()
 	if err != nil {
 		return fmt.Errorf("error getting last insert ID: %w", err)
 	}
-	
+
 	obj.ID = id
 	return nil
 }
@@ -84,18 +84,18 @@ func (r *Repository) UpdateRiskObjectTx(tx *sql.Tx, obj *models.RiskObject) erro
 	query := `UPDATE risk_objects 
               SET current_score = ?, last_seen = ? 
               WHERE id = ?`
-	
+
 	_, err := tx.Exec(
 		query,
 		obj.CurrentScore,
 		obj.LastSeen.Format(time.RFC3339),
 		obj.ID,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error updating risk object: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -104,12 +104,12 @@ func (r *Repository) GetRiskObjectTx(tx *sql.Tx, id int64) (*models.RiskObject, 
 	query := `SELECT id, entity_type, entity_value, current_score, last_seen 
               FROM risk_objects 
               WHERE id = ?`
-	
+
 	row := tx.QueryRow(query, id)
-	
+
 	var obj models.RiskObject
 	var lastSeen string
-	
+
 	err := row.Scan(
 		&obj.ID,
 		&obj.EntityType,
@@ -117,17 +117,17 @@ func (r *Repository) GetRiskObjectTx(tx *sql.Tx, id int64) (*models.RiskObject, 
 		&obj.CurrentScore,
 		&lastSeen,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("risk object not found: %d", id)
 		}
 		return nil, fmt.Errorf("error scanning risk object: %w", err)
 	}
-	
+
 	// Parse timestamp
 	obj.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
-	
+
 	return &obj, nil
 }
 
@@ -135,7 +135,7 @@ func (r *Repository) GetRiskObjectTx(tx *sql.Tx, id int64) (*models.RiskObject, 
 func (r *Repository) CreateEventTx(tx *sql.Tx, event *models.Event) error {
 	query := `INSERT INTO events (detection_id, entity_id, timestamp, raw_data, context, risk_points, is_false_positive) 
               VALUES (?, ?, ?, ?, ?, ?, ?)`
-	
+
 	result, err := tx.Exec(
 		query,
 		event.DetectionID,
@@ -146,16 +146,16 @@ func (r *Repository) CreateEventTx(tx *sql.Tx, event *models.Event) error {
 		event.RiskPoints,
 		event.IsFalsePositive,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error creating event: %w", err)
 	}
-	
+
 	id, err := result.LastInsertId()
 	if err != nil {
 		return fmt.Errorf("error getting last insert ID: %w", err)
 	}
-	
+
 	event.ID = id
 	return nil
 }
@@ -165,13 +165,13 @@ func (r *Repository) GetEventTx(tx *sql.Tx, id int64) (*models.Event, error) {
 	query := `SELECT id, detection_id, entity_id, timestamp, raw_data, context, risk_points, is_false_positive 
               FROM events 
               WHERE id = ?`
-	
+
 	row := tx.QueryRow(query, id)
-	
+
 	var event models.Event
 	var timestamp string
 	var context sql.NullString
-	
+
 	err := row.Scan(
 		&event.ID,
 		&event.DetectionID,
@@ -182,22 +182,22 @@ func (r *Repository) GetEventTx(tx *sql.Tx, id int64) (*models.Event, error) {
 		&event.RiskPoints,
 		&event.IsFalsePositive,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("event not found: %d", id)
 		}
 		return nil, fmt.Errorf("error scanning event: %w", err)
 	}
-	
+
 	// Parse timestamp
 	event.Timestamp, _ = time.Parse(time.RFC3339, timestamp)
-	
+
 	// Handle nullable context field
 	if context.Valid {
 		event.Context = context.String
 	}
-	
+
 	return &event, nil
 }
 
@@ -206,17 +206,17 @@ func (r *Repository) UpdateEventTx(tx *sql.Tx, event *models.Event) error {
 	query := `UPDATE events 
               SET is_false_positive = ? 
               WHERE id = ?`
-	
+
 	_, err := tx.Exec(
 		query,
 		event.IsFalsePositive,
 		event.ID,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error updating event: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -224,7 +224,7 @@ func (r *Repository) UpdateEventTx(tx *sql.Tx, event *models.Event) error {
 func (r *Repository) CreateRiskAlertTx(tx *sql.Tx, alert *models.RiskAlert) error {
 	query := `INSERT INTO risk_alerts (entity_id, triggered_at, total_score, status, notes, owner) 
               VALUES (?, ?, ?, ?, ?, ?)`
-	
+
 	result, err := tx.Exec(
 		query,
 		alert.EntityID,
@@ -234,16 +234,16 @@ func (r *Repository) CreateRiskAlertTx(tx *sql.Tx, alert *models.RiskAlert) erro
 		alert.Notes,
 		alert.Owner,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error creating risk alert: %w", err)
 	}
-	
+
 	id, err := result.LastInsertId()
 	if err != nil {
 		return fmt.Errorf("error getting last insert ID: %w", err)
 	}
-	
+
 	alert.ID = id
 	return nil
 }
@@ -252,7 +252,7 @@ func (r *Repository) CreateRiskAlertTx(tx *sql.Tx, alert *models.RiskAlert) erro
 func (r *Repository) CreateFalsePositiveTx(tx *sql.Tx, fp *models.FalsePositive) error {
 	query := `INSERT INTO false_positives (event_id, reason, analyst_name, timestamp) 
               VALUES (?, ?, ?, ?)`
-	
+
 	result, err := tx.Exec(
 		query,
 		fp.EventID,
@@ -260,16 +260,16 @@ func (r *Repository) CreateFalsePositiveTx(tx *sql.Tx, fp *models.FalsePositive)
 		fp.AnalystName,
 		fp.Timestamp.Format(time.RFC3339),
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error creating false positive record: %w", err)
 	}
-	
+
 	id, err := result.LastInsertId()
 	if err != nil {
 		return fmt.Errorf("error getting last insert ID: %w", err)
 	}
-	
+
 	fp.ID = id
 	return nil
 }
@@ -277,12 +277,12 @@ func (r *Repository) CreateFalsePositiveTx(tx *sql.Tx, fp *models.FalsePositive)
 // DeleteFalsePositiveByEventTx deletes a false positive record by event ID within a transaction
 func (r *Repository) DeleteFalsePositiveByEventTx(tx *sql.Tx, eventID int64) error {
 	query := `DELETE FROM false_positives WHERE event_id = ?`
-	
+
 	_, err := tx.Exec(query, eventID)
 	if err != nil {
 		return fmt.Errorf("error deleting false positive record: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -293,12 +293,12 @@ func (r *Repository) GetRiskObject(id int64) (*models.RiskObject, error) {
 	query := `SELECT id, entity_type, entity_value, current_score, last_seen 
               FROM risk_objects 
               WHERE id = ?`
-	
+
 	row := r.db.QueryRow(query, id)
-	
+
 	var obj models.RiskObject
 	var lastSeen string
-	
+
 	err := row.Scan(
 		&obj.ID,
 		&obj.EntityType,
@@ -306,17 +306,17 @@ func (r *Repository) GetRiskObject(id int64) (*models.RiskObject, error) {
 		&obj.CurrentScore,
 		&lastSeen,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("risk object not found: %d", id)
 		}
 		return nil, fmt.Errorf("error scanning risk object: %w", err)
 	}
-	
+
 	// Parse timestamp
 	obj.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
-	
+
 	return &obj, nil
 }
 
@@ -325,12 +325,12 @@ func (r *Repository) GetRiskObjectByEntity(entityType models.EntityType, entityV
 	query := `SELECT id, entity_type, entity_value, current_score, last_seen 
               FROM risk_objects 
               WHERE entity_type = ? AND entity_value = ?`
-	
+
 	row := r.db.QueryRow(query, entityType, entityValue)
-	
+
 	var obj models.RiskObject
 	var lastSeen string
-	
+
 	err := row.Scan(
 		&obj.ID,
 		&obj.EntityType,
@@ -338,17 +338,17 @@ func (r *Repository) GetRiskObjectByEntity(entityType models.EntityType, entityV
 		&obj.CurrentScore,
 		&lastSeen,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("risk object not found for %s '%s'", entityType, entityValue)
 		}
 		return nil, fmt.Errorf("error scanning risk object: %w", err)
 	}
-	
+
 	// Parse timestamp
 	obj.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
-	
+
 	return &obj, nil
 }
 
@@ -357,20 +357,20 @@ func (r *Repository) ListRiskObjects() ([]*models.RiskObject, error) {
 	query := `SELECT id, entity_type, entity_value, current_score, last_seen 
               FROM risk_objects 
               ORDER BY current_score DESC`
-	
+
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying risk objects: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Initialize empty slice to avoid nil
 	objects := make([]*models.RiskObject, 0)
-	
+
 	for rows.Next() {
 		var obj models.RiskObject
 		var lastSeen string
-		
+
 		err := rows.Scan(
 			&obj.ID,
 			&obj.EntityType,
@@ -378,17 +378,17 @@ func (r *Repository) ListRiskObjects() ([]*models.RiskObject, error) {
 			&obj.CurrentScore,
 			&lastSeen,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning risk object row: %w", err)
 		}
-		
+
 		// Parse timestamp
 		obj.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
-		
+
 		objects = append(objects, &obj)
 	}
-	
+
 	return objects, nil
 }
 
@@ -398,20 +398,20 @@ func (r *Repository) ListHighRiskObjects(threshold int) ([]*models.RiskObject, e
               FROM risk_objects 
               WHERE current_score >= ? 
               ORDER BY current_score DESC`
-	
+
 	rows, err := r.db.Query(query, threshold)
 	if err != nil {
 		return nil, fmt.Errorf("error querying high risk objects: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Initialize empty slice to avoid nil
 	objects := make([]*models.RiskObject, 0)
-	
+
 	for rows.Next() {
 		var obj models.RiskObject
 		var lastSeen string
-		
+
 		err := rows.Scan(
 			&obj.ID,
 			&obj.EntityType,
@@ -419,17 +419,17 @@ func (r *Repository) ListHighRiskObjects(threshold int) ([]*models.RiskObject, e
 			&obj.CurrentScore,
 			&lastSeen,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning risk object row: %w", err)
 		}
-		
+
 		// Parse timestamp
 		obj.LastSeen, _ = time.Parse(time.RFC3339, lastSeen)
-		
+
 		objects = append(objects, &obj)
 	}
-	
+
 	return objects, nil
 }
 
@@ -438,13 +438,13 @@ func (r *Repository) GetEvent(id int64) (*models.Event, error) {
 	query := `SELECT id, detection_id, entity_id, timestamp, raw_data, context, risk_points, is_false_positive 
               FROM events 
               WHERE id = ?`
-	
+
 	row := r.db.QueryRow(query, id)
-	
+
 	var event models.Event
 	var timestamp string
 	var context sql.NullString
-	
+
 	err := row.Scan(
 		&event.ID,
 		&event.DetectionID,
@@ -455,22 +455,22 @@ func (r *Repository) GetEvent(id int64) (*models.Event, error) {
 		&event.RiskPoints,
 		&event.IsFalsePositive,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("event not found: %d", id)
 		}
 		return nil, fmt.Errorf("error scanning event: %w", err)
 	}
-	
+
 	// Parse timestamp
 	event.Timestamp, _ = time.Parse(time.RFC3339, timestamp)
-	
+
 	// Handle nullable context field
 	if context.Valid {
 		event.Context = context.String
 	}
-	
+
 	return &event, nil
 }
 
@@ -479,20 +479,20 @@ func (r *Repository) ListEvents() ([]*models.Event, error) {
 	query := `SELECT id, detection_id, entity_id, timestamp, raw_data, context, risk_points, is_false_positive 
               FROM events 
               ORDER BY timestamp DESC`
-	
+
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying events: %w", err)
 	}
 	defer rows.Close()
-	
+
 	events := make([]*models.Event, 0)
-	
+
 	for rows.Next() {
 		var event models.Event
 		var timestamp string
 		var context sql.NullString
-		
+
 		err := rows.Scan(
 			&event.ID,
 			&event.DetectionID,
@@ -503,22 +503,22 @@ func (r *Repository) ListEvents() ([]*models.Event, error) {
 			&event.RiskPoints,
 			&event.IsFalsePositive,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning event row: %w", err)
 		}
-		
+
 		// Handle nullable context field
 		if context.Valid {
 			event.Context = context.String
 		}
-		
+
 		// Parse timestamp
 		event.Timestamp, _ = time.Parse(time.RFC3339, timestamp)
-		
+
 		events = append(events, &event)
 	}
-	
+
 	return events, nil
 }
 
@@ -531,26 +531,26 @@ func (r *Repository) ListEventsPaginated(limit, offset int) ([]*models.Event, in
 	if err != nil {
 		return nil, 0, fmt.Errorf("error counting events: %w", err)
 	}
-	
+
 	// Get paginated events
 	query := `SELECT id, detection_id, entity_id, timestamp, raw_data, context, risk_points, is_false_positive 
               FROM events 
               ORDER BY timestamp DESC
               LIMIT ? OFFSET ?`
-	
+
 	rows, err := r.db.Query(query, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("error querying events: %w", err)
 	}
 	defer rows.Close()
-	
+
 	events := make([]*models.Event, 0)
-	
+
 	for rows.Next() {
 		var event models.Event
 		var timestamp string
 		var context sql.NullString
-		
+
 		err := rows.Scan(
 			&event.ID,
 			&event.DetectionID,
@@ -561,22 +561,22 @@ func (r *Repository) ListEventsPaginated(limit, offset int) ([]*models.Event, in
 			&event.RiskPoints,
 			&event.IsFalsePositive,
 		)
-		
+
 		if err != nil {
 			return nil, 0, fmt.Errorf("error scanning event row: %w", err)
 		}
-		
+
 		// Handle nullable context field
 		if context.Valid {
 			event.Context = context.String
 		}
-		
+
 		// Parse timestamp
 		event.Timestamp, _ = time.Parse(time.RFC3339, timestamp)
-		
+
 		events = append(events, &event)
 	}
-	
+
 	return events, totalCount, nil
 }
 
@@ -586,20 +586,20 @@ func (r *Repository) ListEventsByEntity(entityID int64) ([]*models.Event, error)
               FROM events 
               WHERE entity_id = ? 
               ORDER BY timestamp DESC`
-	
+
 	rows, err := r.db.Query(query, entityID)
 	if err != nil {
 		return nil, fmt.Errorf("error querying events by entity: %w", err)
 	}
 	defer rows.Close()
-	
+
 	events := make([]*models.Event, 0)
-	
+
 	for rows.Next() {
 		var event models.Event
 		var timestamp string
 		var context sql.NullString
-		
+
 		err := rows.Scan(
 			&event.ID,
 			&event.DetectionID,
@@ -610,22 +610,22 @@ func (r *Repository) ListEventsByEntity(entityID int64) ([]*models.Event, error)
 			&event.RiskPoints,
 			&event.IsFalsePositive,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning event row: %w", err)
 		}
-		
+
 		// Handle nullable context field
 		if context.Valid {
 			event.Context = context.String
 		}
-		
+
 		// Parse timestamp
 		event.Timestamp, _ = time.Parse(time.RFC3339, timestamp)
-		
+
 		events = append(events, &event)
 	}
-	
+
 	return events, nil
 }
 
@@ -638,7 +638,7 @@ func (r *Repository) ListRiskAlerts() ([]*models.RiskAlert, error) {
 func (r *Repository) ListRiskAlertsByStatus(status models.AlertStatus) ([]*models.RiskAlert, error) {
 	var query string
 	var args []interface{}
-	
+
 	if status != "" {
 		query = `SELECT id, entity_id, triggered_at, total_score, status, notes, owner 
                  FROM risk_alerts 
@@ -650,21 +650,21 @@ func (r *Repository) ListRiskAlertsByStatus(status models.AlertStatus) ([]*model
                  FROM risk_alerts 
                  ORDER BY triggered_at DESC`
 	}
-	
+
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying risk alerts: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Initialize empty slice to avoid nil
 	alerts := make([]*models.RiskAlert, 0)
-	
+
 	for rows.Next() {
 		var alert models.RiskAlert
 		var triggeredAt string
 		var notes, owner sql.NullString
-		
+
 		err := rows.Scan(
 			&alert.ID,
 			&alert.EntityID,
@@ -674,11 +674,11 @@ func (r *Repository) ListRiskAlertsByStatus(status models.AlertStatus) ([]*model
 			&notes,
 			&owner,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning risk alert row: %w", err)
 		}
-		
+
 		// Handle nullable fields
 		if notes.Valid {
 			alert.Notes = notes.String
@@ -686,13 +686,13 @@ func (r *Repository) ListRiskAlertsByStatus(status models.AlertStatus) ([]*model
 		if owner.Valid {
 			alert.Owner = owner.String
 		}
-		
+
 		// Parse timestamp
 		alert.TriggeredAt, _ = time.Parse(time.RFC3339, triggeredAt)
-		
+
 		alerts = append(alerts, &alert)
 	}
-	
+
 	return alerts, nil
 }
 
@@ -701,24 +701,24 @@ func (r *Repository) ListRiskAlertsPaginated(limit, offset int, status models.Al
 	// Get total count first
 	var countQuery string
 	var countArgs []interface{}
-	
+
 	if status != "" {
 		countQuery = `SELECT COUNT(*) FROM risk_alerts WHERE status = ?`
 		countArgs = append(countArgs, status)
 	} else {
 		countQuery = `SELECT COUNT(*) FROM risk_alerts`
 	}
-	
+
 	var totalCount int
 	err := r.db.QueryRow(countQuery, countArgs...).Scan(&totalCount)
 	if err != nil {
 		return nil, 0, fmt.Errorf("error counting risk alerts: %w", err)
 	}
-	
+
 	// Get paginated alerts
 	var query string
 	var args []interface{}
-	
+
 	if status != "" {
 		query = `SELECT id, entity_id, triggered_at, total_score, status, notes, owner 
                  FROM risk_alerts 
@@ -733,21 +733,21 @@ func (r *Repository) ListRiskAlertsPaginated(limit, offset int, status models.Al
                  LIMIT ? OFFSET ?`
 		args = append(args, limit, offset)
 	}
-	
+
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("error querying risk alerts: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Initialize empty slice to avoid nil
 	alerts := make([]*models.RiskAlert, 0)
-	
+
 	for rows.Next() {
 		var alert models.RiskAlert
 		var triggeredAt string
 		var notes, owner sql.NullString
-		
+
 		err := rows.Scan(
 			&alert.ID,
 			&alert.EntityID,
@@ -757,11 +757,11 @@ func (r *Repository) ListRiskAlertsPaginated(limit, offset int, status models.Al
 			&notes,
 			&owner,
 		)
-		
+
 		if err != nil {
 			return nil, 0, fmt.Errorf("error scanning risk alert row: %w", err)
 		}
-		
+
 		// Handle nullable fields
 		if notes.Valid {
 			alert.Notes = notes.String
@@ -769,13 +769,13 @@ func (r *Repository) ListRiskAlertsPaginated(limit, offset int, status models.Al
 		if owner.Valid {
 			alert.Owner = owner.String
 		}
-		
+
 		// Parse timestamp
 		alert.TriggeredAt, _ = time.Parse(time.RFC3339, triggeredAt)
-		
+
 		alerts = append(alerts, &alert)
 	}
-	
+
 	return alerts, totalCount, nil
 }
 
@@ -784,13 +784,13 @@ func (r *Repository) GetRiskAlert(id int64) (*models.RiskAlert, error) {
 	query := `SELECT id, entity_id, triggered_at, total_score, status, notes, owner 
               FROM risk_alerts 
               WHERE id = ?`
-	
+
 	row := r.db.QueryRow(query, id)
-	
+
 	var alert models.RiskAlert
 	var triggeredAt string
 	var notes, owner sql.NullString
-	
+
 	err := row.Scan(
 		&alert.ID,
 		&alert.EntityID,
@@ -800,14 +800,14 @@ func (r *Repository) GetRiskAlert(id int64) (*models.RiskAlert, error) {
 		&notes,
 		&owner,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("risk alert not found: %d", id)
 		}
 		return nil, fmt.Errorf("error scanning risk alert: %w", err)
 	}
-	
+
 	// Handle nullable fields
 	if notes.Valid {
 		alert.Notes = notes.String
@@ -815,10 +815,10 @@ func (r *Repository) GetRiskAlert(id int64) (*models.RiskAlert, error) {
 	if owner.Valid {
 		alert.Owner = owner.String
 	}
-	
+
 	// Parse timestamp
 	alert.TriggeredAt, _ = time.Parse(time.RFC3339, triggeredAt)
-	
+
 	return &alert, nil
 }
 
@@ -827,7 +827,7 @@ func (r *Repository) UpdateRiskAlert(alert *models.RiskAlert) error {
 	query := `UPDATE risk_alerts 
               SET status = ?, notes = ?, owner = ? 
               WHERE id = ?`
-	
+
 	result, err := r.db.Exec(
 		query,
 		alert.Status,
@@ -835,20 +835,20 @@ func (r *Repository) UpdateRiskAlert(alert *models.RiskAlert) error {
 		alert.Owner,
 		alert.ID,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error updating risk alert: %w", err)
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("error getting rows affected: %w", err)
 	}
-	
+
 	if rowsAffected == 0 {
 		return fmt.Errorf("risk alert not found: %d", alert.ID)
 	}
-	
+
 	return nil
 }
 
@@ -858,19 +858,19 @@ func (r *Repository) GetEventsForAlert(alertID int64) ([]*models.Event, error) {
 	var alert models.RiskAlert
 	var triggeredAt string
 	var notes, owner sql.NullString
-	
+
 	err := r.db.QueryRow(
 		`SELECT id, entity_id, triggered_at, total_score, status, notes, owner FROM risk_alerts WHERE id = ?`,
 		alertID,
 	).Scan(&alert.ID, &alert.EntityID, &triggeredAt, &alert.TotalScore, &alert.Status, &notes, &owner)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("risk alert not found: %d", alertID)
 		}
 		return nil, fmt.Errorf("error scanning risk alert: %w", err)
 	}
-	
+
 	// Handle nullable fields
 	if notes.Valid {
 		alert.Notes = notes.String
@@ -878,31 +878,31 @@ func (r *Repository) GetEventsForAlert(alertID int64) ([]*models.Event, error) {
 	if owner.Valid {
 		alert.Owner = owner.String
 	}
-	
+
 	alert.TriggeredAt, _ = time.Parse(time.RFC3339, triggeredAt)
-	
+
 	// Get events for this entity before the alert was triggered
 	// Convert alert timestamp to UTC for proper comparison with event timestamps
 	alertTimeUTC := alert.TriggeredAt.UTC()
-	
+
 	query := `SELECT id, detection_id, entity_id, timestamp, raw_data, context, risk_points, is_false_positive 
               FROM events 
               WHERE entity_id = ? AND datetime(timestamp) <= datetime(?) AND is_false_positive = 0
               ORDER BY timestamp DESC`
-	
+
 	rows, err := r.db.Query(query, alert.EntityID, alertTimeUTC.Format(time.RFC3339))
 	if err != nil {
 		return nil, fmt.Errorf("error querying events for alert: %w", err)
 	}
 	defer rows.Close()
-	
+
 	events := make([]*models.Event, 0)
-	
+
 	for rows.Next() {
 		var event models.Event
 		var timestamp string
 		var context sql.NullString
-		
+
 		err := rows.Scan(
 			&event.ID,
 			&event.DetectionID,
@@ -913,22 +913,22 @@ func (r *Repository) GetEventsForAlert(alertID int64) ([]*models.Event, error) {
 			&event.RiskPoints,
 			&event.IsFalsePositive,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning event row: %w", err)
 		}
-		
+
 		// Handle nullable context field
 		if context.Valid {
 			event.Context = context.String
 		}
-		
+
 		// Parse timestamp
 		event.Timestamp, _ = time.Parse(time.RFC3339, timestamp)
-		
+
 		events = append(events, &event)
 	}
-	
+
 	return events, nil
 }
 
@@ -939,11 +939,11 @@ func (r *Repository) DecayRiskScores(decayFactor float64) error {
                 WHEN current_score * (1.0 - ?) < 1.0 AND current_score > 0 THEN 0 
                 ELSE CAST(current_score * (1.0 - ?) AS INTEGER) 
               END`
-	
+
 	_, err := r.db.Exec(query, decayFactor, decayFactor)
 	if err != nil {
 		return fmt.Errorf("error decaying risk scores: %w", err)
 	}
-	
+
 	return nil
 }

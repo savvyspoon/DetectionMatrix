@@ -100,9 +100,9 @@ function riskAlertDetailData() {
         
         async fetchDetections() {
             try {
-                const detectionsList = await RiskAlertDetailAPI.fetchDetections();
+                const detectionsResp = await RiskAlertDetailAPI.fetchDetections();
                 this.detections = {};
-                detectionsList.forEach(d => {
+                (detectionsResp.items || detectionsResp || []).forEach(d => {
                     this.detections[d.id] = d;
                 });
             } catch (error) {

@@ -169,7 +169,7 @@ func TestDataSourceHandler_ListDataSources(t *testing.T) {
 
 	// Create multiple test data sources
 	createTestDataSource(t, db)
-	
+
 	// Create another data source
 	repo := datasource.NewRepository(db)
 	dataSource2 := &models.DataSource{
@@ -188,14 +188,19 @@ func TestDataSourceHandler_ListDataSources(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	var dataSources []*models.DataSource
-	err := json.NewDecoder(w.Body).Decode(&dataSources)
+	var resp struct {
+		Items    []*models.DataSource `json:"items"`
+		Page     int                  `json:"page"`
+		PageSize int                  `json:"page_size"`
+		Total    int                  `json:"total"`
+	}
+	err := json.NewDecoder(w.Body).Decode(&resp)
 	if err != nil {
 		t.Errorf("Failed to decode response: %v", err)
 	}
 
-	if len(dataSources) != 2 {
-		t.Errorf("Expected 2 data sources, got %d", len(dataSources))
+	if len(resp.Items) != 2 {
+		t.Errorf("Expected 2 data sources, got %d", len(resp.Items))
 	}
 }
 
@@ -429,7 +434,7 @@ func TestDataSourceHandler_GetDetectionsByDataSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/api/datasources/id/"+tt.dataSourceID+"/detections", nil)
+			req := httptest.NewRequest("GET", "/api/datasources/"+tt.dataSourceID+"/detections", nil)
 			req.SetPathValue("id", tt.dataSourceID)
 			w := httptest.NewRecorder()
 
@@ -518,7 +523,7 @@ func TestDataSourceHandler_GetMitreTechniquesByDataSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/api/datasources/id/"+tt.dataSourceID+"/techniques", nil)
+			req := httptest.NewRequest("GET", "/api/datasources/"+tt.dataSourceID+"/techniques", nil)
 			req.SetPathValue("id", tt.dataSourceID)
 			w := httptest.NewRecorder()
 

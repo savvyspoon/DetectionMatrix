@@ -57,9 +57,9 @@ func (a *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 		}
 
 		// Allow public assets
-		if strings.HasPrefix(r.URL.Path, "/css/") || 
-		   strings.HasPrefix(r.URL.Path, "/js/") || 
-		   strings.HasPrefix(r.URL.Path, "/favicon.ico") {
+		if strings.HasPrefix(r.URL.Path, "/css/") ||
+			strings.HasPrefix(r.URL.Path, "/js/") ||
+			strings.HasPrefix(r.URL.Path, "/favicon.ico") {
 			next.ServeHTTP(w, r)
 			return
 		}

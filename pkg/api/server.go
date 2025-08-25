@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -29,6 +30,34 @@ type Server struct {
 	preparedStmts  *database.PreparedStatements
 }
 
+// minimal app config used for wiring runtime features
+type appConfig struct {
+	RiskEngine struct {
+		Threshold          int     `json:"threshold"`
+		DecayFactor        float64 `json:"decay_factor"`
+		DecayIntervalHours int     `json:"decay_interval_hours"`
+	} `json:"risk_engine"`
+	Security struct {
+		EnableCORS     bool     `json:"enable_cors"`
+		AllowedOrigins []string `json:"allowed_origins"`
+	} `json:"security"`
+}
+
+func loadAppConfig() appConfig {
+	var conf appConfig
+	// Try CONFIG_PATH first, then default location
+	if path := os.Getenv("CONFIG_PATH"); path != "" {
+		if data, err := os.ReadFile(path); err == nil {
+			_ = json.Unmarshal(data, &conf)
+			return conf
+		}
+	}
+	if data, err := os.ReadFile("configs/config.json"); err == nil {
+		_ = json.Unmarshal(data, &conf)
+	}
+	return conf
+}
+
 // NewServer creates a new API server
 func NewServer(db *database.DB) *Server {
 	// Create repositories
@@ -37,8 +66,21 @@ func NewServer(db *database.DB) *Server {
 	dataSourceRepo := datasource.NewRepository(db)
 	riskRepo := risk.NewRepository(db)
 
-	// Create risk engine
-	riskEngine := risk.NewEngine(db, risk.DefaultConfig())
+	// Load configuration
+	conf := loadAppConfig()
+
+	// Create risk engine from config (with sensible defaults)
+	riskCfg := risk.DefaultConfig()
+	if conf.RiskEngine.Threshold != 0 {
+		riskCfg.RiskThreshold = conf.RiskEngine.Threshold
+	}
+	if conf.RiskEngine.DecayFactor > 0 {
+		riskCfg.DecayFactor = conf.RiskEngine.DecayFactor
+	}
+	if conf.RiskEngine.DecayIntervalHours > 0 {
+		riskCfg.DecayInterval = time.Duration(conf.RiskEngine.DecayIntervalHours) * time.Hour
+	}
+	riskEngine := risk.NewEngine(db, riskCfg)
 
 	// Create cache with 5 minute TTL
 	apiCache := cache.New(5 * time.Minute)
@@ -79,12 +121,12 @@ func (s *Server) setupRoutes() {
 
 	// Static files
 	s.router.Handle("/", http.FileServer(http.Dir("web/static")))
-	
+
 	// Convenience routes for common pages
 	s.router.HandleFunc("GET /alerts", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "web/static/risk-alerts.html")
 	})
-	
+
 	// API routes - Detections
 	s.router.HandleFunc("GET /api/detections", detectionHandler.ListDetections)
 	s.router.HandleFunc("POST /api/detections", detectionHandler.CreateDetection)
@@ -100,7 +142,7 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("DELETE /api/detections/{id}/mitre/{technique_id}", detectionHandler.RemoveMitreTechnique)
 	s.router.HandleFunc("POST /api/detections/{id}/datasource/{datasource_id}", detectionHandler.AddDataSource)
 	s.router.HandleFunc("DELETE /api/detections/{id}/datasource/{datasource_id}", detectionHandler.RemoveDataSource)
-	
+
 	// API routes - Detection Classes
 	s.router.HandleFunc("GET /api/detection-classes", detectionClassHandler.ListDetectionClasses)
 	s.router.HandleFunc("POST /api/detection-classes", detectionClassHandler.CreateDetectionClass)
@@ -108,7 +150,7 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("PUT /api/detection-classes/{id}", detectionClassHandler.UpdateDetectionClass)
 	s.router.HandleFunc("DELETE /api/detection-classes/{id}", detectionClassHandler.DeleteDetectionClass)
 	s.router.HandleFunc("GET /api/detection-classes/{id}/detections", detectionClassHandler.ListDetectionsByClass)
-	
+
 	// API routes - MITRE
 	s.router.HandleFunc("GET /api/mitre/techniques", mitreHandler.ListMitreTechniques)
 	s.router.HandleFunc("POST /api/mitre/techniques", mitreHandler.CreateMitreTechnique)
@@ -118,18 +160,22 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /api/mitre/techniques/{id}/detections", mitreHandler.GetDetectionsByTechnique)
 	s.router.HandleFunc("GET /api/mitre/coverage", mitreHandler.GetCoverageByTactic)
 	s.router.HandleFunc("GET /api/mitre/coverage/summary", mitreHandler.GetCoverageSummary)
-	
+
 	// API routes - Data Sources
 	s.router.HandleFunc("GET /api/datasources", dataSourceHandler.ListDataSources)
 	s.router.HandleFunc("POST /api/datasources", dataSourceHandler.CreateDataSource)
 	s.router.HandleFunc("GET /api/datasources/utilization", dataSourceHandler.GetDataSourceUtilization)
-	s.router.HandleFunc("GET /api/datasources/by-name/{name}", dataSourceHandler.GetDataSourceByName)
+	// Use query parameter for by-name lookup to avoid route conflicts
+	// Access via: /api/datasources/lookup?name=<name>
+	s.router.HandleFunc("GET /api/datasources/lookup", dataSourceHandler.GetDataSourceByName)
+	// Routes with {id} and additional path segments
+	s.router.HandleFunc("GET /api/datasources/{id}/detections", dataSourceHandler.GetDetectionsByDataSource)
+	s.router.HandleFunc("GET /api/datasources/{id}/techniques", dataSourceHandler.GetMitreTechniquesByDataSource)
+	// Base {id} routes
 	s.router.HandleFunc("GET /api/datasources/{id}", dataSourceHandler.GetDataSource)
 	s.router.HandleFunc("PUT /api/datasources/{id}", dataSourceHandler.UpdateDataSource)
 	s.router.HandleFunc("DELETE /api/datasources/{id}", dataSourceHandler.DeleteDataSource)
-	s.router.HandleFunc("GET /api/datasources/id/{id}/detections", dataSourceHandler.GetDetectionsByDataSource)
-	s.router.HandleFunc("GET /api/datasources/id/{id}/techniques", dataSourceHandler.GetMitreTechniquesByDataSource)
-	
+
 	// API routes - Risk
 	s.router.HandleFunc("POST /api/events", riskHandler.ProcessEvent)
 	s.router.HandleFunc("POST /api/events/batch", riskHandler.ProcessEvents)
@@ -151,6 +197,9 @@ func (s *Server) setupRoutes() {
 
 // setupMiddleware sets up the middleware chain
 func (s *Server) setupMiddleware() {
+	// Load configuration for middleware (CORS, etc.)
+	conf := loadAppConfig()
+
 	// Get auth credentials from environment or use defaults
 	authEnabled := os.Getenv("AUTH_ENABLED") == "true"
 	authUser := os.Getenv("AUTH_USER")
@@ -175,7 +224,7 @@ func (s *Server) setupMiddleware() {
 	})
 
 	rateLimiter := middleware.NewRateLimiter(middleware.RateLimitConfig{
-		RequestsPerWindow: 1000, // Increased from 100 to 1000 for development
+		RequestsPerWindow: 5000, // Increased to 5000 for development
 		WindowDuration:    time.Minute,
 		Enabled:           true,
 	})
@@ -187,6 +236,19 @@ func (s *Server) setupMiddleware() {
 
 	// Build middleware chain
 	handler := http.Handler(s.router)
+
+	// CORS (configured via configs/config.json)
+	if conf.Security.EnableCORS {
+		cors := middleware.NewCORSMiddleware(middleware.CORSConfig{
+			Enabled:          true,
+			AllowedOrigins:   conf.Security.AllowedOrigins,
+			AllowedMethods:   nil, // defaults applied in constructor
+			AllowedHeaders:   nil, // defaults applied in constructor
+			AllowCredentials: false,
+			MaxAgeSeconds:    600,
+		})
+		handler = cors.Middleware(handler)
+	}
 	handler = csrfMiddleware.Middleware(handler)
 	handler = authMiddleware.Middleware(handler)
 	handler = rateLimiter.Middleware(handler)
@@ -203,7 +265,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Start starts the API server with proper timeout configuration
 func (s *Server) Start(addr string) error {
 	log.Printf("Starting server on %s", addr)
-	
+
 	// Configure server with timeouts to prevent resource exhaustion
 	srv := &http.Server{
 		Addr:         addr,
@@ -214,7 +276,7 @@ func (s *Server) Start(addr string) error {
 		// Limit request header size to 1MB
 		MaxHeaderBytes: 1 << 20,
 	}
-	
+
 	return srv.ListenAndServe()
 }
 

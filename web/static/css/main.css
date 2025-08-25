@@ -103,6 +103,11 @@ small { font-size: var(--font-size-sm); }
     padding: 0 var(--space-md);
 }
 
+/* HTMX header container - remove any default spacing */
+div[hx-get*="header"] {
+    display: contents; /* This makes the div wrapper invisible */
+}
+
 /* Header and Navigation */
 header {
     background-color: var(--primary-color);
@@ -247,6 +252,21 @@ h2 {
     height: 200px;
     margin-top: 1rem;
 }
+
+/* Utility classes for replacing inline styles */
+.text-muted { color: var(--gray-600); }
+.text-subtle { color: var(--gray-500); }
+.text-error { color: red; }
+.mt-xs { margin-top: var(--space-xs); }
+.w-full { width: 100%; }
+.w-60 { width: 60px; }
+.w-70 { width: 70px; }
+.w-80 { width: 80px; }
+.h-150 { height: 150px !important; }
+.h-200 { height: 200px !important; }
+.relative { position: relative; }
+.center-absolute { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+.fs-085 { font-size: 0.85rem; }
 
 /* Enhanced Tables */
 .table-container {

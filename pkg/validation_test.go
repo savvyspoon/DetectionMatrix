@@ -159,7 +159,7 @@ func TestDetectionValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateDetection(tt.detection)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("Expected validation error but got none")
 			}
@@ -260,7 +260,7 @@ func TestEventValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateEvent(tt.event)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("Expected validation error but got none")
 			}
@@ -355,7 +355,7 @@ func TestRiskObjectValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateRiskObject(tt.riskObject)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("Expected validation error but got none")
 			}
@@ -390,10 +390,10 @@ func TestMitreTechniqueValidation(t *testing.T) {
 		{
 			name: "Invalid MITRE ID format",
 			technique: &models.MitreTechnique{
-				ID:          "INVALID_ID",
-				Name:        "Test Technique",
-				Tactic:      "Execution",
-				Domain:      "Enterprise",
+				ID:     "INVALID_ID",
+				Name:   "Test Technique",
+				Tactic: "Execution",
+				Domain: "Enterprise",
 			},
 			wantError: true,
 			errorMsg:  "invalid MITRE technique ID format",
@@ -401,10 +401,10 @@ func TestMitreTechniqueValidation(t *testing.T) {
 		{
 			name: "Empty name",
 			technique: &models.MitreTechnique{
-				ID:          "T1059",
-				Name:        "",
-				Tactic:      "Execution",
-				Domain:      "Enterprise",
+				ID:     "T1059",
+				Name:   "",
+				Tactic: "Execution",
+				Domain: "Enterprise",
 			},
 			wantError: true,
 			errorMsg:  "technique name cannot be empty",
@@ -412,10 +412,10 @@ func TestMitreTechniqueValidation(t *testing.T) {
 		{
 			name: "Empty tactic",
 			technique: &models.MitreTechnique{
-				ID:          "T1059",
-				Name:        "Test Technique",
-				Tactic:      "",
-				Domain:      "Enterprise",
+				ID:     "T1059",
+				Name:   "Test Technique",
+				Tactic: "",
+				Domain: "Enterprise",
 			},
 			wantError: true,
 			errorMsg:  "tactic cannot be empty",
@@ -423,10 +423,10 @@ func TestMitreTechniqueValidation(t *testing.T) {
 		{
 			name: "Invalid domain",
 			technique: &models.MitreTechnique{
-				ID:          "T1059",
-				Name:        "Test Technique",
-				Tactic:      "Execution",
-				Domain:      "InvalidDomain",
+				ID:     "T1059",
+				Name:   "Test Technique",
+				Tactic: "Execution",
+				Domain: "InvalidDomain",
 			},
 			wantError: true,
 			errorMsg:  "invalid domain",
@@ -434,12 +434,12 @@ func TestMitreTechniqueValidation(t *testing.T) {
 		{
 			name: "Sub-technique without parent",
 			technique: &models.MitreTechnique{
-				ID:               "T1059.001",
-				Name:             "PowerShell",
-				Tactic:           "Execution",
-				Domain:           "Enterprise",
-				IsSubTechnique:   true,
-				SubTechniqueOf:   "", // Missing parent
+				ID:             "T1059.001",
+				Name:           "PowerShell",
+				Tactic:         "Execution",
+				Domain:         "Enterprise",
+				IsSubTechnique: true,
+				SubTechniqueOf: "", // Missing parent
 			},
 			wantError: true,
 			errorMsg:  "sub-technique must have parent technique ID",
@@ -447,12 +447,12 @@ func TestMitreTechniqueValidation(t *testing.T) {
 		{
 			name: "Parent technique with sub-technique flag",
 			technique: &models.MitreTechnique{
-				ID:               "T1059",
-				Name:             "Command and Scripting Interpreter",
-				Tactic:           "Execution", 
-				Domain:           "Enterprise",
-				IsSubTechnique:   true, // Should be false for parent
-				SubTechniqueOf:   "",
+				ID:             "T1059",
+				Name:           "Command and Scripting Interpreter",
+				Tactic:         "Execution",
+				Domain:         "Enterprise",
+				IsSubTechnique: true, // Should be false for parent
+				SubTechniqueOf: "",
 			},
 			wantError: true,
 			errorMsg:  "parent technique cannot be marked as sub-technique",
@@ -462,7 +462,7 @@ func TestMitreTechniqueValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateMitreTechnique(tt.technique)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("Expected validation error but got none")
 			}
@@ -537,7 +537,7 @@ func TestDataSourceValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateDataSource(tt.dataSource)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("Expected validation error but got none")
 			}
@@ -624,7 +624,7 @@ func TestRiskAlertValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateRiskAlert(tt.alert)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("Expected validation error but got none")
 			}
@@ -640,10 +640,10 @@ func TestRiskAlertValidation(t *testing.T) {
 
 func TestFalsePositiveValidation(t *testing.T) {
 	tests := []struct {
-		name           string
-		falsePositive  *models.FalsePositive
-		wantError      bool
-		errorMsg       string
+		name          string
+		falsePositive *models.FalsePositive
+		wantError     bool
+		errorMsg      string
 	}{
 		{
 			name: "Valid false positive",
@@ -699,7 +699,7 @@ func TestFalsePositiveValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateFalsePositive(tt.falsePositive)
-			
+
 			if tt.wantError && err == nil {
 				t.Error("Expected validation error but got none")
 			}

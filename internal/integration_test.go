@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"riskmatrix/internal/detection"
 	"riskmatrix/internal/datasource"
+	"riskmatrix/internal/detection"
 	"riskmatrix/internal/mitre"
 	"riskmatrix/internal/risk"
 	"riskmatrix/pkg/database"
@@ -288,7 +288,7 @@ func TestMITRECoverageAnalysis(t *testing.T) {
 		t.Fatalf("Failed to get coverage by tactic: %v", err)
 	}
 
-	// Since GetCoverageByTactic returns coverage percentages, 
+	// Since GetCoverageByTactic returns coverage percentages,
 	// we just verify that tactics have some coverage
 	expectedTactics := []string{"Execution", "Defense Evasion", "Discovery"}
 
@@ -346,8 +346,8 @@ func TestDataSourceUtilizationAnalysis(t *testing.T) {
 
 	// Link detections to data sources
 	linkages := []struct {
-		detectionIdx   int
-		dataSourceIdx  int
+		detectionIdx  int
+		dataSourceIdx int
 	}{
 		{0, 0}, // Logon -> Windows Event Logs
 		{0, 1}, // Logon -> Sysmon (multi-source detection)
@@ -374,13 +374,13 @@ func TestDataSourceUtilizationAnalysis(t *testing.T) {
 
 	expectedUtilization := map[string]int{
 		"Windows Event Logs": 1,
-		"Sysmon":            2,
-		"Network Logs":      1,
-		"Cloud Audit Logs":  1,
+		"Sysmon":             2,
+		"Network Logs":       1,
+		"Cloud Audit Logs":   1,
 	}
 
 	if len(utilization) != len(expectedUtilization) {
-		t.Errorf("Expected %d data sources in utilization, got %d", 
+		t.Errorf("Expected %d data sources in utilization, got %d",
 			len(expectedUtilization), len(utilization))
 	}
 
@@ -391,7 +391,7 @@ func TestDataSourceUtilizationAnalysis(t *testing.T) {
 			continue
 		}
 		if actualCount != expectedCount {
-			t.Errorf("Expected %d detections for %s, got %d", 
+			t.Errorf("Expected %d detections for %s, got %d",
 				expectedCount, dataSourceName, actualCount)
 		}
 	}
@@ -565,7 +565,7 @@ func TestRiskDecayAndMaintenance(t *testing.T) {
 
 		// Allow for small rounding differences
 		if abs(updatedObj.CurrentScore-expectedScores[i]) > 1 {
-			t.Errorf("Expected score around %d for object %d, got %d", 
+			t.Errorf("Expected score around %d for object %d, got %d",
 				expectedScores[i], riskObjIDs[i], updatedObj.CurrentScore)
 		}
 	}
@@ -614,16 +614,16 @@ func TestComplexEventContext(t *testing.T) {
 		"protocol":       "HTTPS",
 		"user_agent":     "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
 		"request_headers": map[string]string{
-			"Accept":     "application/json",
+			"Accept":        "application/json",
 			"Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
 		},
-		"response_code":   200,
-		"bytes_sent":      1024,
-		"bytes_received":  4096,
+		"response_code":  200,
+		"bytes_sent":     1024,
+		"bytes_received": 4096,
 		"threat_intel": map[string]interface{}{
 			"malicious_domains": []string{"evil.com", "malware.net"},
-			"reputation_score": 85,
-			"categories":       []string{"malware", "botnet"},
+			"reputation_score":  85,
+			"categories":        []string{"malware", "botnet"},
 		},
 	}
 

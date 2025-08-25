@@ -24,13 +24,13 @@ func (r *Repository) GetMitreTechnique(id string) (*models.MitreTechnique, error
 	query := `SELECT id, name, description, tactic, tactics, domain, last_modified, 
 	          detection, platforms, data_sources, is_sub_technique, sub_technique_of 
 	          FROM mitre_techniques WHERE id = ?`
-	
+
 	row := r.db.QueryRow(query, id)
-	
+
 	var technique models.MitreTechnique
 	var tacticsJSON, platformsJSON, dataSourcesJSON sql.NullString
 	var description, domain, lastModified, detection, subTechniqueOf sql.NullString
-	
+
 	err := row.Scan(
 		&technique.ID,
 		&technique.Name,
@@ -45,14 +45,14 @@ func (r *Repository) GetMitreTechnique(id string) (*models.MitreTechnique, error
 		&technique.IsSubTechnique,
 		&subTechniqueOf,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("MITRE technique not found: %s", id)
 		}
 		return nil, fmt.Errorf("error scanning MITRE technique: %w", err)
 	}
-	
+
 	// Handle nullable fields
 	if description.Valid {
 		technique.Description = description.String
@@ -69,26 +69,26 @@ func (r *Repository) GetMitreTechnique(id string) (*models.MitreTechnique, error
 	if subTechniqueOf.Valid {
 		technique.SubTechniqueOf = subTechniqueOf.String
 	}
-	
+
 	// Parse JSON arrays
 	if tacticsJSON.Valid && tacticsJSON.String != "" {
 		if err := json.Unmarshal([]byte(tacticsJSON.String), &technique.Tactics); err != nil {
 			return nil, fmt.Errorf("error parsing tactics JSON: %w", err)
 		}
 	}
-	
+
 	if platformsJSON.Valid && platformsJSON.String != "" {
 		if err := json.Unmarshal([]byte(platformsJSON.String), &technique.Platforms); err != nil {
 			return nil, fmt.Errorf("error parsing platforms JSON: %w", err)
 		}
 	}
-	
+
 	if dataSourcesJSON.Valid && dataSourcesJSON.String != "" {
 		if err := json.Unmarshal([]byte(dataSourcesJSON.String), &technique.DataSources); err != nil {
 			return nil, fmt.Errorf("error parsing data sources JSON: %w", err)
 		}
 	}
-	
+
 	return &technique, nil
 }
 
@@ -97,20 +97,20 @@ func (r *Repository) ListMitreTechniques() ([]*models.MitreTechnique, error) {
 	query := `SELECT id, name, description, tactic, tactics, domain, last_modified, 
 	          detection, platforms, data_sources, is_sub_technique, sub_technique_of 
 	          FROM mitre_techniques ORDER BY tactic, id`
-	
+
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying MITRE techniques: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var techniques []*models.MitreTechnique
-	
+
 	for rows.Next() {
 		var technique models.MitreTechnique
 		var tacticsJSON, platformsJSON, dataSourcesJSON sql.NullString
 		var description, domain, lastModified, detection, subTechniqueOf sql.NullString
-		
+
 		err := rows.Scan(
 			&technique.ID,
 			&technique.Name,
@@ -125,11 +125,11 @@ func (r *Repository) ListMitreTechniques() ([]*models.MitreTechnique, error) {
 			&technique.IsSubTechnique,
 			&subTechniqueOf,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning MITRE technique row: %w", err)
 		}
-		
+
 		// Handle nullable fields
 		if description.Valid {
 			technique.Description = description.String
@@ -146,29 +146,29 @@ func (r *Repository) ListMitreTechniques() ([]*models.MitreTechnique, error) {
 		if subTechniqueOf.Valid {
 			technique.SubTechniqueOf = subTechniqueOf.String
 		}
-		
+
 		// Parse JSON arrays
 		if tacticsJSON.Valid && tacticsJSON.String != "" {
 			if err := json.Unmarshal([]byte(tacticsJSON.String), &technique.Tactics); err != nil {
 				return nil, fmt.Errorf("error parsing tactics JSON: %w", err)
 			}
 		}
-		
+
 		if platformsJSON.Valid && platformsJSON.String != "" {
 			if err := json.Unmarshal([]byte(platformsJSON.String), &technique.Platforms); err != nil {
 				return nil, fmt.Errorf("error parsing platforms JSON: %w", err)
 			}
 		}
-		
+
 		if dataSourcesJSON.Valid && dataSourcesJSON.String != "" {
 			if err := json.Unmarshal([]byte(dataSourcesJSON.String), &technique.DataSources); err != nil {
 				return nil, fmt.Errorf("error parsing data sources JSON: %w", err)
 			}
 		}
-		
+
 		techniques = append(techniques, &technique)
 	}
-	
+
 	return techniques, nil
 }
 
@@ -177,20 +177,20 @@ func (r *Repository) ListMitreTechniquesByTactic(tactic string) ([]*models.Mitre
 	query := `SELECT id, name, description, tactic, tactics, domain, last_modified, 
 	          detection, platforms, data_sources, is_sub_technique, sub_technique_of 
 	          FROM mitre_techniques WHERE tactic = ? ORDER BY id`
-	
+
 	rows, err := r.db.Query(query, tactic)
 	if err != nil {
 		return nil, fmt.Errorf("error querying MITRE techniques by tactic: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var techniques []*models.MitreTechnique
-	
+
 	for rows.Next() {
 		var technique models.MitreTechnique
 		var tacticsJSON, platformsJSON, dataSourcesJSON sql.NullString
 		var description, domain, lastModified, detection, subTechniqueOf sql.NullString
-		
+
 		err := rows.Scan(
 			&technique.ID,
 			&technique.Name,
@@ -205,11 +205,11 @@ func (r *Repository) ListMitreTechniquesByTactic(tactic string) ([]*models.Mitre
 			&technique.IsSubTechnique,
 			&subTechniqueOf,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning MITRE technique row: %w", err)
 		}
-		
+
 		// Handle nullable fields
 		if description.Valid {
 			technique.Description = description.String
@@ -226,29 +226,29 @@ func (r *Repository) ListMitreTechniquesByTactic(tactic string) ([]*models.Mitre
 		if subTechniqueOf.Valid {
 			technique.SubTechniqueOf = subTechniqueOf.String
 		}
-		
+
 		// Parse JSON arrays
 		if tacticsJSON.Valid && tacticsJSON.String != "" {
 			if err := json.Unmarshal([]byte(tacticsJSON.String), &technique.Tactics); err != nil {
 				return nil, fmt.Errorf("error parsing tactics JSON: %w", err)
 			}
 		}
-		
+
 		if platformsJSON.Valid && platformsJSON.String != "" {
 			if err := json.Unmarshal([]byte(platformsJSON.String), &technique.Platforms); err != nil {
 				return nil, fmt.Errorf("error parsing platforms JSON: %w", err)
 			}
 		}
-		
+
 		if dataSourcesJSON.Valid && dataSourcesJSON.String != "" {
 			if err := json.Unmarshal([]byte(dataSourcesJSON.String), &technique.DataSources); err != nil {
 				return nil, fmt.Errorf("error parsing data sources JSON: %w", err)
 			}
 		}
-		
+
 		techniques = append(techniques, &technique)
 	}
-	
+
 	return techniques, nil
 }
 
@@ -258,32 +258,32 @@ func (r *Repository) CreateMitreTechnique(technique *models.MitreTechnique) erro
 		id, name, description, tactic, tactics, domain, last_modified, 
 		detection, platforms, data_sources, is_sub_technique, sub_technique_of
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	
+
 	// Convert slice fields to JSON
 	var tacticsJSON, platformsJSON, dataSourcesJSON []byte
 	var err error
-	
+
 	if len(technique.Tactics) > 0 {
 		tacticsJSON, err = json.Marshal(technique.Tactics)
 		if err != nil {
 			return fmt.Errorf("error marshaling tactics to JSON: %w", err)
 		}
 	}
-	
+
 	if len(technique.Platforms) > 0 {
 		platformsJSON, err = json.Marshal(technique.Platforms)
 		if err != nil {
 			return fmt.Errorf("error marshaling platforms to JSON: %w", err)
 		}
 	}
-	
+
 	if len(technique.DataSources) > 0 {
 		dataSourcesJSON, err = json.Marshal(technique.DataSources)
 		if err != nil {
 			return fmt.Errorf("error marshaling data sources to JSON: %w", err)
 		}
 	}
-	
+
 	_, err = r.db.Exec(
 		query,
 		technique.ID,
@@ -299,11 +299,11 @@ func (r *Repository) CreateMitreTechnique(technique *models.MitreTechnique) erro
 		technique.IsSubTechnique,
 		technique.SubTechniqueOf,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error creating MITRE technique: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -314,32 +314,32 @@ func (r *Repository) UpdateMitreTechnique(technique *models.MitreTechnique) erro
 		last_modified = ?, detection = ?, platforms = ?, data_sources = ?, 
 		is_sub_technique = ?, sub_technique_of = ? 
 		WHERE id = ?`
-	
+
 	// Convert slice fields to JSON
 	var tacticsJSON, platformsJSON, dataSourcesJSON []byte
 	var err error
-	
+
 	if len(technique.Tactics) > 0 {
 		tacticsJSON, err = json.Marshal(technique.Tactics)
 		if err != nil {
 			return fmt.Errorf("error marshaling tactics to JSON: %w", err)
 		}
 	}
-	
+
 	if len(technique.Platforms) > 0 {
 		platformsJSON, err = json.Marshal(technique.Platforms)
 		if err != nil {
 			return fmt.Errorf("error marshaling platforms to JSON: %w", err)
 		}
 	}
-	
+
 	if len(technique.DataSources) > 0 {
 		dataSourcesJSON, err = json.Marshal(technique.DataSources)
 		if err != nil {
 			return fmt.Errorf("error marshaling data sources to JSON: %w", err)
 		}
 	}
-	
+
 	result, err := r.db.Exec(
 		query,
 		technique.Name,
@@ -355,41 +355,41 @@ func (r *Repository) UpdateMitreTechnique(technique *models.MitreTechnique) erro
 		technique.SubTechniqueOf,
 		technique.ID,
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("error updating MITRE technique: %w", err)
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("error getting rows affected: %w", err)
 	}
-	
+
 	if rowsAffected == 0 {
 		return fmt.Errorf("MITRE technique not found: %s", technique.ID)
 	}
-	
+
 	return nil
 }
 
 // DeleteMitreTechnique deletes a MITRE technique
 func (r *Repository) DeleteMitreTechnique(id string) error {
 	query := `DELETE FROM mitre_techniques WHERE id = ?`
-	
+
 	result, err := r.db.Exec(query, id)
 	if err != nil {
 		return fmt.Errorf("error deleting MITRE technique: %w", err)
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("error getting rows affected: %w", err)
 	}
-	
+
 	if rowsAffected == 0 {
 		return fmt.Errorf("MITRE technique not found: %s", id)
 	}
-	
+
 	return nil
 }
 
@@ -409,30 +409,30 @@ func (r *Repository) GetCoverageByTactic() (map[string]float64, error) {
 		GROUP BY 
 			mt.tactic
 	`
-	
+
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying coverage by tactic: %w", err)
 	}
 	defer rows.Close()
-	
+
 	coverage := make(map[string]float64)
-	
+
 	for rows.Next() {
 		var tactic string
 		var total, covered int
-		
+
 		if err := rows.Scan(&tactic, &total, &covered); err != nil {
 			return nil, fmt.Errorf("error scanning coverage row: %w", err)
 		}
-		
+
 		if total > 0 {
 			coverage[tactic] = float64(covered) / float64(total) * 100
 		} else {
 			coverage[tactic] = 0
 		}
 	}
-	
+
 	return coverage, nil
 }
 
@@ -450,21 +450,21 @@ func (r *Repository) GetDetectionsByTechnique(techniqueID string) ([]*models.Det
 		ORDER BY 
 			d.name
 	`
-	
+
 	rows, err := r.db.Query(query, techniqueID)
 	if err != nil {
 		return nil, fmt.Errorf("error querying detections by technique: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Initialize empty slice to avoid nil
 	detections := make([]*models.Detection, 0)
-	
+
 	for rows.Next() {
 		var detection models.Detection
 		var createdAt, updatedAt string
 		var playbookLink, owner, riskObject, testingDescription sql.NullString
-		
+
 		err := rows.Scan(
 			&detection.ID,
 			&detection.Name,
@@ -479,11 +479,11 @@ func (r *Repository) GetDetectionsByTechnique(techniqueID string) ([]*models.Det
 			&createdAt,
 			&updatedAt,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("error scanning detection row: %w", err)
 		}
-		
+
 		// Handle nullable fields
 		if playbookLink.Valid {
 			detection.PlaybookLink = playbookLink.String
@@ -497,10 +497,10 @@ func (r *Repository) GetDetectionsByTechnique(techniqueID string) ([]*models.Det
 		if testingDescription.Valid {
 			detection.TestingDescription = testingDescription.String
 		}
-		
+
 		detections = append(detections, &detection)
 	}
-	
+
 	return detections, nil
 }
 

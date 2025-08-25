@@ -98,7 +98,8 @@ function mitreData() {
         async fetchTechniques() {
             try {
                 console.log('Fetching MITRE techniques from API...');
-                this.techniques = await MitreAPI.fetchTechniques();
+                const data = await MitreAPI.fetchTechniques();
+                this.techniques = data.items || data || [];
                 console.log(`Successfully loaded ${this.techniques.length} MITRE techniques`);
                 
                 if (this.techniques.length === 0) {

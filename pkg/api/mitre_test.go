@@ -109,7 +109,7 @@ func TestMitreHandler_ListMitreTechniques(t *testing.T) {
 
 	// Create multiple test techniques
 	createTestMitreTechnique(t, db)
-	
+
 	// Create another technique with different tactic
 	repo := mitre.NewRepository(db)
 	technique2 := &models.MitreTechnique{
@@ -168,14 +168,19 @@ func TestMitreHandler_ListMitreTechniques(t *testing.T) {
 				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
 			}
 
-			var techniques []*models.MitreTechnique
-			err := json.NewDecoder(w.Body).Decode(&techniques)
+			var resp struct {
+				Items    []*models.MitreTechnique `json:"items"`
+				Page     int                      `json:"page"`
+				PageSize int                      `json:"page_size"`
+				Total    int                      `json:"total"`
+			}
+			err := json.NewDecoder(w.Body).Decode(&resp)
 			if err != nil {
 				t.Errorf("Failed to decode response: %v", err)
 			}
 
-			if len(techniques) != tt.expectedCount {
-				t.Errorf("Expected %d techniques, got %d", tt.expectedCount, len(techniques))
+			if len(resp.Items) != tt.expectedCount {
+				t.Errorf("Expected %d techniques, got %d", tt.expectedCount, len(resp.Items))
 			}
 		})
 	}

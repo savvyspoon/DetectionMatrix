@@ -44,7 +44,7 @@ type Event struct {
 	Context         string    `json:"context,omitempty"` // JSON field for detection context information
 	RiskPoints      int       `json:"risk_points"`
 	IsFalsePositive bool      `json:"is_false_positive"`
-	
+
 	// Relationships (for convenience)
 	Detection  *Detection  `json:"detection,omitempty"`
 	RiskObject *RiskObject `json:"risk_object,omitempty"`
@@ -59,7 +59,7 @@ type RiskAlert struct {
 	Status      AlertStatus `json:"status"`
 	Notes       string      `json:"notes,omitempty"`
 	Owner       string      `json:"owner,omitempty"`
-	
+
 	// Relationships (for convenience)
 	RiskObject *RiskObject `json:"risk_object,omitempty"`
 	Events     []*Event    `json:"events,omitempty"` // Contributing events
@@ -72,7 +72,7 @@ type FalsePositive struct {
 	Reason      string    `json:"reason,omitempty"`
 	AnalystName string    `json:"analyst_name"`
 	Timestamp   time.Time `json:"timestamp"`
-	
+
 	// Relationships (for convenience)
 	Event *Event `json:"event,omitempty"`
 }
@@ -87,7 +87,7 @@ type RiskRepository interface {
 	CreateRiskObject(obj *RiskObject) error
 	UpdateRiskObject(obj *RiskObject) error
 	DeleteRiskObject(id int64) error
-	
+
 	// Event operations
 	GetEvent(id int64) (*Event, error)
 	ListEvents() ([]*Event, error)
@@ -96,7 +96,7 @@ type RiskRepository interface {
 	ListEventsByDetection(detectionID int64) ([]*Event, error)
 	CreateEvent(event *Event) error
 	MarkEventAsFalsePositive(eventID int64, fpInfo *FalsePositive) error
-	
+
 	// RiskAlert operations
 	GetRiskAlert(id int64) (*RiskAlert, error)
 	ListRiskAlerts() ([]*RiskAlert, error)
@@ -104,12 +104,12 @@ type RiskRepository interface {
 	CreateRiskAlert(alert *RiskAlert) error
 	UpdateRiskAlert(alert *RiskAlert) error
 	GetEventsForAlert(alertID int64) ([]*Event, error)
-	
+
 	// FalsePositive operations
 	GetFalsePositive(id int64) (*FalsePositive, error)
 	ListFalsePositives() ([]*FalsePositive, error)
 	ListFalsePositivesByDetection(detectionID int64) ([]*FalsePositive, error)
-	
+
 	// Risk scoring
 	UpdateEntityRiskScore(entityID int64, points int) error
 	DecayRiskScores(decayFactor float64) error // Periodically reduce risk scores

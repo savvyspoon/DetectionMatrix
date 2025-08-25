@@ -4,12 +4,40 @@ class DetectionsAPI {
         return await APIUtils.fetchAPI('/api/detections');
     }
 
+    static async fetchDetection(id) {
+        return await APIUtils.fetchAPI(`/api/detections/${id}`);
+    }
+
     static async fetchDetectionClasses() {
         return await APIUtils.fetchAPI('/api/detection-classes');
     }
 
+    static async createDetection(detection) {
+        return await APIUtils.postAPI('/api/detections', detection);
+    }
+
+    static async updateDetection(id, detection) {
+        return await APIUtils.postAPI(`/api/detections/${id}`, detection);
+    }
+
     static async deleteDetection(id) {
         return await APIUtils.deleteAPI(`/api/detections/${id}`);
+    }
+
+    static async addDataSource(detectionId, dataSourceId) {
+        return await APIUtils.postAPI(`/api/detections/${detectionId}/datasources/${dataSourceId}`);
+    }
+
+    static async removeDataSource(detectionId, dataSourceId) {
+        return await APIUtils.deleteAPI(`/api/detections/${detectionId}/datasources/${dataSourceId}`);
+    }
+
+    static async addMitreTechnique(detectionId, techniqueId) {
+        return await APIUtils.postAPI(`/api/detections/${detectionId}/techniques/${techniqueId}`);
+    }
+
+    static async removeMitreTechnique(detectionId, techniqueId) {
+        return await APIUtils.deleteAPI(`/api/detections/${detectionId}/techniques/${techniqueId}`);
     }
 }
 
@@ -34,11 +62,24 @@ function detectionsListData() {
         
         async fetchDetections() {
             try {
-                this.detections = await DetectionsAPI.fetchDetections();
+                console.log('Fetching detections...');
+                const data = await DetectionsAPI.fetchDetections();
+                console.log('API response:', data);
+                // Handle ListResponse structure from API
+                if (data && typeof data === 'object' && 'items' in data) {
+                    this.detections = Array.isArray(data.items) ? data.items : [];
+                } else if (Array.isArray(data)) {
+                    this.detections = data;
+                } else {
+                    this.detections = [];
+                }
+                console.log('Detections set to:', this.detections);
                 this.applyFilters();
             } catch (error) {
                 console.error('Error fetching detections:', error);
                 UIUtils.showAlert('Error loading detections');
+                this.detections = [];
+                this.filteredDetections = [];
             }
         },
         
@@ -53,6 +94,13 @@ function detectionsListData() {
         },
         
         applyFilters() {
+            console.log('Applying filters, detections:', this.detections);
+            // Ensure detections is an array before spreading
+            if (!Array.isArray(this.detections)) {
+                console.warn('Detections is not an array:', this.detections);
+                this.filteredDetections = [];
+                return;
+            }
             let filtered = [...this.detections];
             
             // Apply status filter

@@ -26,7 +26,7 @@ func setupRiskTestHandler(t *testing.T) (*RiskHandler, *database.DB) {
 // createTestRiskObject creates a test risk object in the database using direct SQL
 func createTestRiskObject(t *testing.T, db *database.DB) *models.RiskObject {
 	query := `INSERT INTO risk_objects (entity_type, entity_value, current_score, last_seen) VALUES (?, ?, ?, ?)`
-	
+
 	now := time.Now()
 	result, err := db.Exec(query, models.EntityTypeUser, "test-user", 25, now.Format(time.RFC3339))
 	if err != nil {
@@ -50,7 +50,7 @@ func createTestRiskObject(t *testing.T, db *database.DB) *models.RiskObject {
 // createTestEvent creates a test event in the database using direct SQL
 func createTestEvent(t *testing.T, db *database.DB, detectionID int64, riskObjectID int64) *models.Event {
 	query := `INSERT INTO events (detection_id, entity_id, timestamp, raw_data, risk_points, is_false_positive) VALUES (?, ?, ?, ?, ?, ?)`
-	
+
 	now := time.Now()
 	result, err := db.Exec(query, detectionID, riskObjectID, now.Format(time.RFC3339), "test event data", 10, false)
 	if err != nil {
@@ -353,7 +353,7 @@ func TestRiskHandler_ListRiskObjects(t *testing.T) {
 
 	// Create multiple test risk objects
 	createTestRiskObject(t, db)
-	
+
 	// Create another risk object using direct SQL
 	query2 := `INSERT INTO risk_objects (entity_type, entity_value, current_score, last_seen) VALUES (?, ?, ?, ?)`
 	now2 := time.Now()
@@ -405,14 +405,19 @@ func TestRiskHandler_ListRiskObjects(t *testing.T) {
 			}
 
 			if tt.expectedStatus == http.StatusOK {
-				var riskObjects []*models.RiskObject
-				err := json.NewDecoder(w.Body).Decode(&riskObjects)
+				var resp struct {
+					Items    []*models.RiskObject `json:"items"`
+					Page     int                  `json:"page"`
+					PageSize int                  `json:"page_size"`
+					Total    int                  `json:"total"`
+				}
+				err := json.NewDecoder(w.Body).Decode(&resp)
 				if err != nil {
 					t.Errorf("Failed to decode response: %v", err)
 				}
 
-				if len(riskObjects) != tt.expectedCount {
-					t.Errorf("Expected %d risk objects, got %d", tt.expectedCount, len(riskObjects))
+				if len(resp.Items) != tt.expectedCount {
+					t.Errorf("Expected %d risk objects, got %d", tt.expectedCount, len(resp.Items))
 				}
 			}
 		})
@@ -553,8 +558,8 @@ func TestRiskHandler_MarkEventAsFalsePositive(t *testing.T) {
 	testEvent := createTestEvent(t, db, testDetection.ID, testRiskObject.ID)
 
 	falsePositive := models.FalsePositive{
-		Reason:       "Test false positive",
-		AnalystName:  "test-analyst",
+		Reason:      "Test false positive",
+		AnalystName: "test-analyst",
 	}
 
 	tests := []struct {
@@ -607,14 +612,19 @@ func TestRiskHandler_ListRiskAlerts(t *testing.T) {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	var alerts []*models.RiskAlert
-	err := json.NewDecoder(w.Body).Decode(&alerts)
+	var resp struct {
+		Items    []*models.RiskAlert `json:"items"`
+		Page     int                 `json:"page"`
+		PageSize int                 `json:"page_size"`
+		Total    int                 `json:"total"`
+	}
+	err := json.NewDecoder(w.Body).Decode(&resp)
 	if err != nil {
 		t.Errorf("Failed to decode response: %v", err)
 	}
 
 	// Should return empty array initially
-	if alerts == nil {
+	if resp.Items == nil {
 		t.Error("Expected alerts array, got nil")
 	}
 }
@@ -625,7 +635,7 @@ func TestRiskHandler_ListRiskAlertsByStatus(t *testing.T) {
 
 	// Create test risk objects and alerts with different statuses
 	now := time.Now()
-	
+
 	// Create risk object
 	riskObjectQuery := `INSERT INTO risk_objects (entity_type, entity_value, current_score, last_seen) VALUES (?, ?, ?, ?)`
 	result, err := db.Exec(riskObjectQuery, models.EntityTypeUser, "test-user-alerts", 75, now.Format(time.RFC3339))
@@ -636,7 +646,7 @@ func TestRiskHandler_ListRiskAlertsByStatus(t *testing.T) {
 
 	// Create risk alerts with different statuses
 	alertQuery := `INSERT INTO risk_alerts (entity_id, triggered_at, total_score, status, notes, owner) VALUES (?, ?, ?, ?, ?, ?)`
-	
+
 	// Alert 1: New status
 	_, err = db.Exec(alertQuery, riskObjectID, now.Format(time.RFC3339), 75, models.AlertStatusNew, "Test alert 1", "analyst1")
 	if err != nil {
@@ -722,19 +732,24 @@ func TestRiskHandler_ListRiskAlertsByStatus(t *testing.T) {
 			}
 
 			if w.Code == http.StatusOK {
-				var alerts []*models.RiskAlert
-				err := json.NewDecoder(w.Body).Decode(&alerts)
+				var resp struct {
+					Items    []*models.RiskAlert `json:"items"`
+					Page     int                 `json:"page"`
+					PageSize int                 `json:"page_size"`
+					Total    int                 `json:"total"`
+				}
+				err := json.NewDecoder(w.Body).Decode(&resp)
 				if err != nil {
 					t.Errorf("Failed to decode response: %v", err)
 				}
 
-				if len(alerts) != tt.expectedCount {
-					t.Errorf("Expected %d alerts, got %d", tt.expectedCount, len(alerts))
+				if len(resp.Items) != tt.expectedCount {
+					t.Errorf("Expected %d alerts, got %d", tt.expectedCount, len(resp.Items))
 				}
 
 				// Verify that all returned alerts have the correct status when filtering
-				if tt.statusFilter != "" && len(alerts) > 0 {
-					for _, alert := range alerts {
+				if tt.statusFilter != "" && len(resp.Items) > 0 {
+					for _, alert := range resp.Items {
 						if string(alert.Status) != tt.statusFilter {
 							t.Errorf("Expected alert status %s, got %s", tt.statusFilter, alert.Status)
 						}

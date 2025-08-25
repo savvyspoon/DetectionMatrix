@@ -26,26 +26,26 @@ func (ps *PreparedStatements) Get(key, query string) (*sql.Stmt, error) {
 	ps.mu.RLock()
 	stmt, exists := ps.stmts[key]
 	ps.mu.RUnlock()
-	
+
 	if exists {
 		return stmt, nil
 	}
-	
+
 	// Create new prepared statement
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if stmt, exists := ps.stmts[key]; exists {
 		return stmt, nil
 	}
-	
+
 	// Prepare the statement
 	stmt, err := ps.db.Prepare(query)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	ps.stmts[key] = stmt
 	return stmt, nil
 }
@@ -54,14 +54,14 @@ func (ps *PreparedStatements) Get(key, query string) (*sql.Stmt, error) {
 func (ps *PreparedStatements) Close() error {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
-	
+
 	var lastErr error
 	for _, stmt := range ps.stmts {
 		if err := stmt.Close(); err != nil {
 			lastErr = err
 		}
 	}
-	
+
 	ps.stmts = make(map[string]*sql.Stmt)
 	return lastErr
 }

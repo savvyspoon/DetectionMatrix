@@ -35,7 +35,7 @@ func createSimpleTestDetection(t *testing.T, engine *Engine) *models.Detection {
 
 	query := `INSERT INTO detections (name, description, status, severity, risk_points, event_count_last_30_days, false_positives_last_30_days, created_at, updated_at) 
               VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)`
-	
+
 	now := time.Now().Format(time.RFC3339)
 	result, err := engine.db.Exec(query, detection.Name, detection.Description, detection.Status, detection.Severity, detection.RiskPoints, now, now)
 	if err != nil {
@@ -220,7 +220,7 @@ func TestEngine_DecayRiskScores(t *testing.T) {
 
 		// Allow for small rounding differences
 		if abs(updatedObj.CurrentScore-expectedScores[i]) > 1 {
-			t.Errorf("Expected score around %d for object %d, got %d", 
+			t.Errorf("Expected score around %d for object %d, got %d",
 				expectedScores[i], obj.ID, updatedObj.CurrentScore)
 		}
 	}

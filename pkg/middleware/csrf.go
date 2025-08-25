@@ -63,9 +63,9 @@ func (c *CSRFMiddleware) Middleware(next http.Handler) http.Handler {
 
 		// Skip CSRF for safe methods and static assets
 		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" ||
-		   strings.HasPrefix(r.URL.Path, "/css/") ||
-		   strings.HasPrefix(r.URL.Path, "/js/") ||
-		   strings.HasPrefix(r.URL.Path, "/favicon.ico") {
+			strings.HasPrefix(r.URL.Path, "/css/") ||
+			strings.HasPrefix(r.URL.Path, "/js/") ||
+			strings.HasPrefix(r.URL.Path, "/favicon.ico") {
 			// Set CSRF token for GET requests
 			c.setCSRFToken(w, r)
 			next.ServeHTTP(w, r)
@@ -91,7 +91,7 @@ func (c *CSRFMiddleware) setCSRFToken(w http.ResponseWriter, r *http.Request) {
 
 	// Generate new token
 	token := c.generateCSRFToken()
-	
+
 	// Store token with expiration
 	c.mu.Lock()
 	c.tokens[token] = time.Now().Add(24 * time.Hour)
@@ -135,10 +135,10 @@ func (c *CSRFMiddleware) verifyCSRFToken(r *http.Request) bool {
 
 	// Get submitted token from header or form
 	var submittedToken string
-	
+
 	// Check header first
 	submittedToken = r.Header.Get(c.config.HeaderName)
-	
+
 	// If not in header, check form data
 	if submittedToken == "" {
 		submittedToken = r.FormValue(c.config.FieldName)

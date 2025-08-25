@@ -29,20 +29,20 @@ func NewRiskHandler(engine *risk.Engine, repo *risk.Repository) *RiskHandler {
 func (h *RiskHandler) ProcessEvent(w http.ResponseWriter, r *http.Request) {
 	// Parse request body with custom structure to handle entity_type and entity_value
 	var requestData struct {
-		DetectionID     int64                `json:"detection_id"`
-		EntityID        int64                `json:"entity_id,omitempty"`
-		EntityType      string               `json:"entity_type,omitempty"`
-		EntityValue     string               `json:"entity_value,omitempty"`
-		RiskObject      *models.RiskObject   `json:"risk_object,omitempty"`
-		Timestamp       time.Time            `json:"timestamp,omitempty"`
-		RawData         string               `json:"raw_data,omitempty"`
-		Context         string               `json:"context,omitempty"`
-		RiskPoints      int                  `json:"risk_points"`
-		IsFalsePositive bool                 `json:"is_false_positive"`
+		DetectionID     int64              `json:"detection_id"`
+		EntityID        int64              `json:"entity_id,omitempty"`
+		EntityType      string             `json:"entity_type,omitempty"`
+		EntityValue     string             `json:"entity_value,omitempty"`
+		RiskObject      *models.RiskObject `json:"risk_object,omitempty"`
+		Timestamp       time.Time          `json:"timestamp,omitempty"`
+		RawData         string             `json:"raw_data,omitempty"`
+		Context         string             `json:"context,omitempty"`
+		RiskPoints      int                `json:"risk_points"`
+		IsFalsePositive bool               `json:"is_false_positive"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -56,12 +56,12 @@ func (h *RiskHandler) ProcessEvent(w http.ResponseWriter, r *http.Request) {
 		IsFalsePositive: requestData.IsFalsePositive,
 		Timestamp:       requestData.Timestamp,
 	}
-	
+
 	// Set timestamp if not provided
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now()
 	}
-	
+
 	// Handle RiskObject from different sources
 	if requestData.RiskObject != nil {
 		// If RiskObject is directly provided in the request
@@ -76,26 +76,24 @@ func (h *RiskHandler) ProcessEvent(w http.ResponseWriter, r *http.Request) {
 		// If entity_id is provided, fetch the risk object
 		riskObj, err := h.repo.GetRiskObject(requestData.EntityID)
 		if err != nil {
-			http.Error(w, "Invalid entity_id", http.StatusBadRequest)
+			Error(w, r, http.StatusBadRequest, "Invalid entity_id")
 			return
 		}
 		event.EntityID = requestData.EntityID
 		event.RiskObject = riskObj
 	} else {
-		http.Error(w, "Either entity_id, risk_object, or entity_type/entity_value must be provided", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Either entity_id, risk_object, or entity_type/entity_value must be provided")
 		return
 	}
 
 	// Process event
 	if err := h.engine.ProcessEvent(&event); err != nil {
-		http.Error(w, "Error processing event", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error processing event")
 		return
 	}
 
 	// Return created event as JSON
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(event)
+	JSON(w, http.StatusCreated, event)
 }
 
 // ProcessEvents handles POST /api/events/batch
@@ -103,7 +101,7 @@ func (h *RiskHandler) ProcessEvents(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var events []*models.Event
 	if err := json.NewDecoder(r.Body).Decode(&events); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -117,14 +115,12 @@ func (h *RiskHandler) ProcessEvents(w http.ResponseWriter, r *http.Request) {
 
 	// Process events
 	if err := h.engine.ProcessEvents(events); err != nil {
-		http.Error(w, "Error processing events", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error processing events")
 		return
 	}
 
 	// Return success with count
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]int{"processed": len(events)})
+	JSON(w, http.StatusCreated, map[string]int{"processed": len(events)})
 }
 
 // GetRiskObject handles GET /api/risk/objects/{id}
@@ -133,20 +129,19 @@ func (h *RiskHandler) GetRiskObject(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid risk object ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid risk object ID")
 		return
 	}
 
 	// Get risk object from repository
 	obj, err := h.repo.GetRiskObject(id)
 	if err != nil {
-		http.Error(w, "Risk object not found", http.StatusNotFound)
+		Error(w, r, http.StatusNotFound, "Risk object not found")
 		return
 	}
 
 	// Return risk object as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(obj)
+	JSON(w, http.StatusOK, obj)
 }
 
 // GetRiskObjectByEntity handles GET /api/risk/objects/entity
@@ -156,20 +151,19 @@ func (h *RiskHandler) GetRiskObjectByEntity(w http.ResponseWriter, r *http.Reque
 	entityValue := r.URL.Query().Get("value")
 
 	if entityType == "" || entityValue == "" {
-		http.Error(w, "Missing entity type or value", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Missing entity type or value")
 		return
 	}
 
 	// Get risk object from repository
 	obj, err := h.repo.GetRiskObjectByEntity(models.EntityType(entityType), entityValue)
 	if err != nil {
-		http.Error(w, "Risk object not found", http.StatusNotFound)
+		Error(w, r, http.StatusNotFound, "Risk object not found")
 		return
 	}
 
 	// Return risk object as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(obj)
+	JSON(w, http.StatusOK, obj)
 }
 
 // ListRiskObjects handles GET /api/risk/objects
@@ -185,7 +179,7 @@ func (h *RiskHandler) ListRiskObjects(w http.ResponseWriter, r *http.Request) {
 		// Parse threshold
 		threshold, err := strconv.Atoi(thresholdStr)
 		if err != nil {
-			http.Error(w, "Invalid threshold", http.StatusBadRequest)
+			Error(w, r, http.StatusBadRequest, "Invalid threshold")
 			return
 		}
 
@@ -197,7 +191,7 @@ func (h *RiskHandler) ListRiskObjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		http.Error(w, "Error retrieving risk objects", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving risk objects")
 		return
 	}
 
@@ -205,7 +199,7 @@ func (h *RiskHandler) ListRiskObjects(w http.ResponseWriter, r *http.Request) {
 	if limitStr != "" {
 		limit, err := strconv.Atoi(limitStr)
 		if err != nil || limit < 0 {
-			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			Error(w, r, http.StatusBadRequest, "Invalid limit")
 			return
 		}
 		if limit > 0 && len(objects) > limit {
@@ -213,9 +207,8 @@ func (h *RiskHandler) ListRiskObjects(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Return risk objects as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(objects)
+	// Return risk objects using the standard list envelope
+	List(w, objects, 1, len(objects), len(objects))
 }
 
 // GetEvent handles GET /api/events/{id}
@@ -224,20 +217,19 @@ func (h *RiskHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid event ID")
 		return
 	}
 
 	// Get event from repository
 	event, err := h.repo.GetEvent(id)
 	if err != nil {
-		http.Error(w, "Event not found", http.StatusNotFound)
+		Error(w, r, http.StatusNotFound, "Event not found")
 		return
 	}
 
 	// Return event as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(event)
+	JSON(w, http.StatusOK, event)
 }
 
 // ListEvents handles GET /api/events
@@ -245,56 +237,37 @@ func (h *RiskHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 	// Parse pagination parameters
 	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
-	
+
 	// Default values
 	page := 1
 	limit := 20
-	
+
 	// Parse page parameter
 	if pageStr != "" {
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
 			page = p
 		}
 	}
-	
+
 	// Parse limit parameter
 	if limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
 			limit = l
 		}
 	}
-	
+
 	// Calculate offset
 	offset := (page - 1) * limit
-	
+
 	// Get paginated events from repository
 	events, totalCount, err := h.repo.ListEventsPaginated(limit, offset)
 	if err != nil {
-		http.Error(w, "Error retrieving events", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving events")
 		return
 	}
-	
-	// Calculate pagination metadata
-	totalPages := (totalCount + limit - 1) / limit
-	hasNext := page < totalPages
-	hasPrev := page > 1
-	
-	// Create response with pagination metadata
-	response := map[string]interface{}{
-		"events": events,
-		"pagination": map[string]interface{}{
-			"page":        page,
-			"limit":       limit,
-			"total_count": totalCount,
-			"total_pages": totalPages,
-			"has_next":    hasNext,
-			"has_prev":    hasPrev,
-		},
-	}
 
-	// Return paginated events as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	// Return events using the standard list envelope
+	List(w, events, page, limit, totalCount)
 }
 
 // ListEventsByEntity handles GET /api/events/entity/{id}
@@ -303,20 +276,19 @@ func (h *RiskHandler) ListEventsByEntity(w http.ResponseWriter, r *http.Request)
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid entity ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid entity ID")
 		return
 	}
 
 	// Get events from repository
 	events, err := h.repo.ListEventsByEntity(id)
 	if err != nil {
-		http.Error(w, "Error retrieving events", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving events")
 		return
 	}
 
 	// Return events as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(events)
+	JSON(w, http.StatusOK, events)
 }
 
 // MarkEventAsFalsePositive handles POST /api/events/{id}/false-positive
@@ -325,14 +297,14 @@ func (h *RiskHandler) MarkEventAsFalsePositive(w http.ResponseWriter, r *http.Re
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid event ID")
 		return
 	}
 
 	// Parse request body
 	var fpInfo models.FalsePositive
 	if err := json.NewDecoder(r.Body).Decode(&fpInfo); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -343,13 +315,12 @@ func (h *RiskHandler) MarkEventAsFalsePositive(w http.ResponseWriter, r *http.Re
 
 	// Mark event as false positive
 	if err := h.engine.MarkEventAsFalsePositive(id, &fpInfo); err != nil {
-		http.Error(w, "Error marking event as false positive", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error marking event as false positive")
 		return
 	}
 
 	// Return success message
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "Event marked as false positive successfully"})
+	JSON(w, http.StatusOK, map[string]string{"message": "Event marked as false positive successfully"})
 }
 
 // UnmarkEventAsFalsePositive handles DELETE /api/events/{id}/false-positive
@@ -358,13 +329,13 @@ func (h *RiskHandler) UnmarkEventAsFalsePositive(w http.ResponseWriter, r *http.
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid event ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid event ID")
 		return
 	}
 
 	// Unmark event as false positive
 	if err := h.engine.UnmarkEventAsFalsePositive(id); err != nil {
-		http.Error(w, "Error unmarking event as false positive", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error unmarking event as false positive")
 		return
 	}
 
@@ -411,50 +382,15 @@ func (h *RiskHandler) ListRiskAlerts(w http.ResponseWriter, r *http.Request) {
 	// Calculate offset
 	offset := (page - 1) * limit
 
-	// Check if pagination is requested
-	if limitStr != "" || pageStr != "" {
-		// Use paginated method
-		alerts, totalCount, err := h.engine.GetRiskAlertsPaginated(limit, offset, models.AlertStatus(statusFilter))
-		if err != nil {
-			http.Error(w, "Error retrieving risk alerts", http.StatusInternalServerError)
-			return
-		}
-
-		// Calculate total pages
-		totalPages := (totalCount + limit - 1) / limit
-
-		response := RiskAlertsResponse{
-			Alerts:     alerts,
-			TotalCount: totalCount,
-			Page:       page,
-			PageSize:   limit,
-			TotalPages: totalPages,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
-	} else {
-		// Legacy non-paginated response for backward compatibility
-		var alerts []*models.RiskAlert
-		var err error
-
-		if statusFilter != "" {
-			// List alerts filtered by status
-			alerts, err = h.engine.GetRiskAlertsByStatus(models.AlertStatus(statusFilter))
-		} else {
-			// List all risk alerts
-			alerts, err = h.engine.GetRiskAlerts()
-		}
-
-		if err != nil {
-			http.Error(w, "Error retrieving risk alerts", http.StatusInternalServerError)
-			return
-		}
-
-		// Return risk alerts as JSON
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(alerts)
+	// Always use paginated method for a consistent envelope
+	alerts, totalCount, err := h.engine.GetRiskAlertsPaginated(limit, offset, models.AlertStatus(statusFilter))
+	if err != nil {
+		Error(w, r, http.StatusInternalServerError, "Error retrieving risk alerts")
+		return
 	}
+
+	// Return alerts using the standard list envelope
+	List(w, alerts, page, limit, totalCount)
 }
 
 // GetRiskAlert handles GET /api/risk/alerts/{id}
@@ -463,20 +399,19 @@ func (h *RiskHandler) GetRiskAlert(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid alert ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid alert ID")
 		return
 	}
 
 	// Get risk alert from repository
 	alert, err := h.repo.GetRiskAlert(id)
 	if err != nil {
-		http.Error(w, "Error retrieving risk alert", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving risk alert")
 		return
 	}
 
 	// Return risk alert as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(alert)
+	JSON(w, http.StatusOK, alert)
 }
 
 // UpdateRiskAlert handles PUT /api/risk/alerts/{id}
@@ -485,14 +420,14 @@ func (h *RiskHandler) UpdateRiskAlert(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid alert ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid alert ID")
 		return
 	}
 
 	// Parse request body
 	var alert models.RiskAlert
 	if err := json.NewDecoder(r.Body).Decode(&alert); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -501,13 +436,12 @@ func (h *RiskHandler) UpdateRiskAlert(w http.ResponseWriter, r *http.Request) {
 
 	// Update risk alert in repository
 	if err := h.repo.UpdateRiskAlert(&alert); err != nil {
-		http.Error(w, "Error updating risk alert", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error updating risk alert")
 		return
 	}
 
 	// Return updated alert as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(alert)
+	JSON(w, http.StatusOK, alert)
 }
 
 // GetEventsForAlert handles GET /api/risk/alerts/{id}/events
@@ -516,7 +450,7 @@ func (h *RiskHandler) GetEventsForAlert(w http.ResponseWriter, r *http.Request) 
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid alert ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid alert ID")
 		return
 	}
 
@@ -525,30 +459,27 @@ func (h *RiskHandler) GetEventsForAlert(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		// If alert not found, return empty list
 		if err.Error() == fmt.Sprintf("risk alert not found: %d", id) {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode([]*models.Event{})
+			JSON(w, http.StatusOK, []*models.Event{})
 			return
 		}
-		http.Error(w, "Error retrieving events for alert", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving events for alert")
 		return
 	}
 
 	// Return events as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(events)
+	JSON(w, http.StatusOK, events)
 }
 
 // DecayRiskScores handles POST /api/risk/decay
 func (h *RiskHandler) DecayRiskScores(w http.ResponseWriter, r *http.Request) {
 	// Decay risk scores
 	if err := h.engine.DecayRiskScores(); err != nil {
-		http.Error(w, "Error decaying risk scores", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error decaying risk scores")
 		return
 	}
 
 	// Return success message
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "Risk scores decayed successfully"})
+	JSON(w, http.StatusOK, map[string]string{"message": "Risk scores decayed successfully"})
 }
 
 // GetHighRiskEntities handles GET /api/risk/high
@@ -556,11 +487,10 @@ func (h *RiskHandler) GetHighRiskEntities(w http.ResponseWriter, r *http.Request
 	// Get high risk entities from engine
 	entities, err := h.engine.GetHighRiskEntities()
 	if err != nil {
-		http.Error(w, "Error retrieving high risk entities", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving high risk entities")
 		return
 	}
 
 	// Return entities as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(entities)
+	JSON(w, http.StatusOK, entities)
 }

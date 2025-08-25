@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"riskmatrix/internal/mitre"
+	validation "riskmatrix/pkg"
 	"riskmatrix/pkg/models"
 )
 
@@ -23,20 +24,19 @@ func (h *MitreHandler) GetMitreTechnique(w http.ResponseWriter, r *http.Request)
 	// Extract ID from URL path
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Invalid technique ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid technique ID")
 		return
 	}
 
 	// Get technique from repository
 	technique, err := h.repo.GetMitreTechnique(id)
 	if err != nil {
-		http.Error(w, "Technique not found", http.StatusNotFound)
+		Error(w, r, http.StatusNotFound, "Technique not found")
 		return
 	}
 
 	// Return technique as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(technique)
+	JSON(w, http.StatusOK, technique)
 }
 
 // ListMitreTechniques handles GET /api/mitre/techniques
@@ -56,13 +56,12 @@ func (h *MitreHandler) ListMitreTechniques(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err != nil {
-		http.Error(w, "Error retrieving techniques", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving techniques")
 		return
 	}
 
-	// Return techniques as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(techniques)
+	// Return techniques using the standard list envelope
+	List(w, techniques, 1, len(techniques), len(techniques))
 }
 
 // CreateMitreTechnique handles POST /api/mitre/techniques
@@ -70,26 +69,24 @@ func (h *MitreHandler) CreateMitreTechnique(w http.ResponseWriter, r *http.Reque
 	// Parse request body
 	var technique models.MitreTechnique
 	if err := json.NewDecoder(r.Body).Decode(&technique); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// Validate required fields
-	if technique.ID == "" || technique.Tactic == "" || technique.Name == "" {
-		http.Error(w, "Missing required fields", http.StatusBadRequest)
+	// Validate payload
+	if err := validation.ValidateMitreTechnique(&technique); err != nil {
+		Error(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	// Create technique in repository
 	if err := h.repo.CreateMitreTechnique(&technique); err != nil {
-		http.Error(w, "Error creating technique", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error creating technique")
 		return
 	}
 
 	// Return created technique as JSON
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(technique)
+	JSON(w, http.StatusCreated, technique)
 }
 
 // UpdateMitreTechnique handles PUT /api/mitre/techniques/{id}
@@ -97,29 +94,34 @@ func (h *MitreHandler) UpdateMitreTechnique(w http.ResponseWriter, r *http.Reque
 	// Extract ID from URL path
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Invalid technique ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid technique ID")
 		return
 	}
 
 	// Parse request body
 	var technique models.MitreTechnique
 	if err := json.NewDecoder(r.Body).Decode(&technique); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	// Ensure ID in URL matches ID in body
 	technique.ID = id
 
+	// Validate payload
+	if err := validation.ValidateMitreTechnique(&technique); err != nil {
+		Error(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	// Update technique in repository
 	if err := h.repo.UpdateMitreTechnique(&technique); err != nil {
-		http.Error(w, "Error updating technique", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error updating technique")
 		return
 	}
 
 	// Return updated technique as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(technique)
+	JSON(w, http.StatusOK, technique)
 }
 
 // DeleteMitreTechnique handles DELETE /api/mitre/techniques/{id}
@@ -127,13 +129,13 @@ func (h *MitreHandler) DeleteMitreTechnique(w http.ResponseWriter, r *http.Reque
 	// Extract ID from URL path
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Invalid technique ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid technique ID")
 		return
 	}
 
 	// Delete technique from repository
 	if err := h.repo.DeleteMitreTechnique(id); err != nil {
-		http.Error(w, "Error deleting technique", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error deleting technique")
 		return
 	}
 
@@ -146,13 +148,12 @@ func (h *MitreHandler) GetCoverageByTactic(w http.ResponseWriter, r *http.Reques
 	// Get coverage by tactic from repository
 	coverage, err := h.repo.GetCoverageByTactic()
 	if err != nil {
-		http.Error(w, "Error retrieving coverage", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving coverage")
 		return
 	}
 
 	// Return coverage as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(coverage)
+	JSON(w, http.StatusOK, coverage)
 }
 
 // GetDetectionsByTechnique handles GET /api/mitre/techniques/{id}/detections
@@ -160,20 +161,19 @@ func (h *MitreHandler) GetDetectionsByTechnique(w http.ResponseWriter, r *http.R
 	// Extract ID from URL path
 	id := r.PathValue("id")
 	if id == "" {
-		http.Error(w, "Invalid technique ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid technique ID")
 		return
 	}
 
 	// Get detections from repository
 	detections, err := h.repo.GetDetectionsByTechnique(id)
 	if err != nil {
-		http.Error(w, "Error retrieving detections", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving detections")
 		return
 	}
 
 	// Return detections as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(detections)
+	JSON(w, http.StatusOK, detections)
 }
 
 // GetCoverageSummary handles GET /api/mitre/coverage/summary
@@ -181,11 +181,10 @@ func (h *MitreHandler) GetCoverageSummary(w http.ResponseWriter, r *http.Request
 	// Get coverage summary from repository
 	summary, err := h.repo.GetCoverageSummary()
 	if err != nil {
-		http.Error(w, "Error retrieving coverage summary", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving coverage summary")
 		return
 	}
 
 	// Return summary as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(summary)
+	JSON(w, http.StatusOK, summary)
 }

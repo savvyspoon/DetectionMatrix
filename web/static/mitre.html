@@ -35,24 +35,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
-    <header>
-        <div class="container">
-            <div class="logo">
-                <h1>RiskMatrix</h1>
-            </div>
-            <nav>
-                <ul>
-                    <li><a href="index.html">Dashboard</a></li>
-                    <li><a href="detections-list.html">Detections</a></li>
-                    <li><a href="mitre.html" class="active">MITRE ATT&CK</a></li>
-                    <li><a href="datasources.html">Data Sources</a></li>
-                    <li><a href="events.html">Events</a></li>
-                    <li><a href="risk-objects.html">Risk Objects</a></li>
-                    <li><a href="/alerts">Risk Alerts</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+    <div hx-get="/header.html" hx-trigger="load"></div>
 
     <main>
         <div class="card" x-data="mitreData()" x-init="init()">
@@ -62,19 +45,19 @@
                     <p>Loading MITRE data...</p>
                 </div>
                 <div x-show="error" class="error-indicator">
-                    <p style="color: red;">Error: <span x-text="error"></span></p>
+                    <p class="text-error">Error: <span x-text="error"></span></p>
                     <button @click="init()" class="btn btn-primary">Retry</button>
                 </div>
             </div>
             
             <!-- Coverage Overview -->
             <div class="coverage-overview">
-                <div class="chart-container" style="height: 200px; position: relative;">
-                    <div x-show="loading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                        <p style="font-size: 0.85rem;">Loading coverage data...</p>
+                <div class="chart-container h-200 relative">
+                    <div x-show="loading" class="center-absolute">
+                        <p class="fs-085">Loading coverage data...</p>
                     </div>
-                    <div x-show="error" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: red;">
-                        <p style="font-size: 0.85rem;">Error loading coverage data</p>
+                    <div x-show="error" class="center-absolute text-error">
+                        <p class="fs-085">Error loading coverage data</p>
                     </div>
                     <canvas id="coverageChart" x-show="!loading && !error"></canvas>
                 </div>
@@ -216,11 +199,7 @@
         </div>
     </main>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 RiskMatrix - Detection Management Platform</p>
-        </div>
-    </footer>
+    <div hx-get="/footer.html" hx-trigger="load"></div>
 
     <style>
         /* Typography - System font stack */

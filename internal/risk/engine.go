@@ -13,10 +13,10 @@ import (
 type Config struct {
 	// Threshold at which to generate risk alerts
 	RiskThreshold int
-	
+
 	// Decay factor for risk scores (0-1, where 0 means no decay)
 	DecayFactor float64
-	
+
 	// How often to run the decay process
 	DecayInterval time.Duration
 }
@@ -65,29 +65,29 @@ func (e *Engine) ProcessEvent(event *models.Event) error {
 			CurrentScore: 0,
 			LastSeen:     time.Now(),
 		}
-		
+
 		if err := e.repo.CreateRiskObjectTx(tx, riskObject); err != nil {
 			return fmt.Errorf("failed to create risk object: %w", err)
 		}
 	}
-	
+
 	// Set entity ID in event
 	event.EntityID = riskObject.ID
-	
+
 	// Save event
 	if err := e.repo.CreateEventTx(tx, event); err != nil {
 		return fmt.Errorf("failed to create event: %w", err)
 	}
-	
+
 	// Update risk score
 	oldScore := riskObject.CurrentScore
 	riskObject.CurrentScore += event.RiskPoints
 	riskObject.LastSeen = time.Now()
-	
+
 	if err := e.repo.UpdateRiskObjectTx(tx, riskObject); err != nil {
 		return fmt.Errorf("failed to update risk object: %w", err)
 	}
-	
+
 	// Check if threshold crossed
 	if oldScore < e.config.RiskThreshold && riskObject.CurrentScore >= e.config.RiskThreshold {
 		// Create risk alert
@@ -99,20 +99,20 @@ func (e *Engine) ProcessEvent(event *models.Event) error {
 			Notes:       "",
 			Owner:       "",
 		}
-		
+
 		if err := e.repo.CreateRiskAlertTx(tx, alert); err != nil {
 			return fmt.Errorf("failed to create risk alert: %w", err)
 		}
-		
-		log.Printf("Risk alert generated for %s '%s' with score %d", 
+
+		log.Printf("Risk alert generated for %s '%s' with score %d",
 			riskObject.EntityType, riskObject.EntityValue, riskObject.CurrentScore)
 	}
-	
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -131,7 +131,7 @@ func (e *Engine) DecayRiskScores() error {
 	if e.config.DecayFactor <= 0 {
 		return nil // No decay needed
 	}
-	
+
 	return e.repo.DecayRiskScores(e.config.DecayFactor)
 }
 
@@ -139,7 +139,7 @@ func (e *Engine) DecayRiskScores() error {
 func (e *Engine) StartDecayProcess(stop <-chan struct{}) {
 	ticker := time.NewTicker(e.config.DecayInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -162,51 +162,51 @@ func (e *Engine) MarkEventAsFalsePositive(eventID int64, fpInfo *models.FalsePos
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
-	
+
 	// Get event
 	event, err := e.repo.GetEventTx(tx, eventID)
 	if err != nil {
 		return fmt.Errorf("failed to get event: %w", err)
 	}
-	
+
 	// Check if already marked as false positive
 	if event.IsFalsePositive {
 		return fmt.Errorf("event already marked as false positive")
 	}
-	
+
 	// Mark event as false positive
 	event.IsFalsePositive = true
 	if err := e.repo.UpdateEventTx(tx, event); err != nil {
 		return fmt.Errorf("failed to update event: %w", err)
 	}
-	
+
 	// Create false positive record
 	fpInfo.EventID = eventID
 	if err := e.repo.CreateFalsePositiveTx(tx, fpInfo); err != nil {
 		return fmt.Errorf("failed to create false positive record: %w", err)
 	}
-	
+
 	// Adjust risk score for entity
 	riskObject, err := e.repo.GetRiskObjectTx(tx, event.EntityID)
 	if err != nil {
 		return fmt.Errorf("failed to get risk object: %w", err)
 	}
-	
+
 	// Subtract risk points
 	riskObject.CurrentScore -= event.RiskPoints
 	if riskObject.CurrentScore < 0 {
 		riskObject.CurrentScore = 0
 	}
-	
+
 	if err := e.repo.UpdateRiskObjectTx(tx, riskObject); err != nil {
 		return fmt.Errorf("failed to update risk object: %w", err)
 	}
-	
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -218,47 +218,47 @@ func (e *Engine) UnmarkEventAsFalsePositive(eventID int64) error {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
-	
+
 	// Get event
 	event, err := e.repo.GetEventTx(tx, eventID)
 	if err != nil {
 		return fmt.Errorf("failed to get event: %w", err)
 	}
-	
+
 	// Check if event is marked as false positive
 	if !event.IsFalsePositive {
 		return fmt.Errorf("event is not marked as false positive")
 	}
-	
+
 	// Unmark event as false positive
 	event.IsFalsePositive = false
 	if err := e.repo.UpdateEventTx(tx, event); err != nil {
 		return fmt.Errorf("failed to update event: %w", err)
 	}
-	
+
 	// Delete false positive record
 	if err := e.repo.DeleteFalsePositiveByEventTx(tx, eventID); err != nil {
 		return fmt.Errorf("failed to delete false positive record: %w", err)
 	}
-	
+
 	// Re-add risk points to entity
 	riskObject, err := e.repo.GetRiskObjectTx(tx, event.EntityID)
 	if err != nil {
 		return fmt.Errorf("failed to get risk object: %w", err)
 	}
-	
+
 	// Add back risk points
 	riskObject.CurrentScore += event.RiskPoints
-	
+
 	if err := e.repo.UpdateRiskObjectTx(tx, riskObject); err != nil {
 		return fmt.Errorf("failed to update risk object: %w", err)
 	}
-	
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	
+
 	return nil
 }
 

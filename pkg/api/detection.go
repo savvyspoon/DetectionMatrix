@@ -25,20 +25,19 @@ func (h *DetectionHandler) GetDetection(w http.ResponseWriter, r *http.Request) 
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
 	// Get detection from repository
 	detection, err := h.repo.GetDetection(id)
 	if err != nil {
-		http.Error(w, "Detection not found", http.StatusNotFound)
+		Error(w, r, http.StatusNotFound, "Detection not found")
 		return
 	}
 
 	// Return detection as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(detection)
+	JSON(w, http.StatusOK, detection)
 }
 
 // ListDetections handles GET /api/detections
@@ -55,7 +54,7 @@ func (h *DetectionHandler) ListDetections(w http.ResponseWriter, r *http.Request
 		// Filter by class ID
 		classID, parseErr := strconv.ParseInt(classIDStr, 10, 64)
 		if parseErr != nil {
-			http.Error(w, "Invalid class_id parameter", http.StatusBadRequest)
+			Error(w, r, http.StatusBadRequest, "Invalid class_id parameter")
 			return
 		}
 		detections, err = h.repo.ListDetectionsByClass(classID)
@@ -68,13 +67,12 @@ func (h *DetectionHandler) ListDetections(w http.ResponseWriter, r *http.Request
 	}
 
 	if err != nil {
-		http.Error(w, "Error retrieving detections", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving detections")
 		return
 	}
 
-	// Return detections as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(detections)
+	// Return detections using the standard list envelope
+	List(w, detections, 1, len(detections), len(detections))
 }
 
 // CreateDetection handles POST /api/detections
@@ -82,21 +80,18 @@ func (h *DetectionHandler) CreateDetection(w http.ResponseWriter, r *http.Reques
 	// Parse request body
 	var detection models.Detection
 	if err := json.NewDecoder(r.Body).Decode(&detection); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	// Create detection in repository
 	if err := h.repo.CreateDetection(&detection); err != nil {
-		// Log the actual error for debugging
-		http.Error(w, "Error creating detection: " + err.Error(), http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error creating detection")
 		return
 	}
 
 	// Return created detection as JSON
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(detection)
+	JSON(w, http.StatusCreated, detection)
 }
 
 // UpdateDetection handles PUT /api/detections/{id}
@@ -105,29 +100,123 @@ func (h *DetectionHandler) UpdateDetection(w http.ResponseWriter, r *http.Reques
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
+	}
+
+	// Define a struct to capture the update request including relationship IDs
+	var updateRequest struct {
+		models.Detection
+		DataSourceIDs     []int64 `json:"data_source_ids,omitempty"`
+		MitreTechniqueIDs []string `json:"mitre_technique_ids,omitempty"`
 	}
 
 	// Parse request body
-	var detection models.Detection
-	if err := json.NewDecoder(r.Body).Decode(&detection); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&updateRequest); err != nil {
+		Error(w, r, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// Ensure ID in URL matches ID in body
-	detection.ID = id
+	// Ensure ID in URL matches
+	updateRequest.Detection.ID = id
 
 	// Update detection in repository
-	if err := h.repo.UpdateDetection(&detection); err != nil {
-		http.Error(w, "Error updating detection: " + err.Error(), http.StatusInternalServerError)
+	if err := h.repo.UpdateDetection(&updateRequest.Detection); err != nil {
+		Error(w, r, http.StatusInternalServerError, "Error updating detection")
+		return
+	}
+
+	// Update data source relationships if provided
+	if updateRequest.DataSourceIDs != nil {
+		// Get current data sources
+		currentDetection, err := h.repo.GetDetection(id)
+		if err != nil {
+			Error(w, r, http.StatusInternalServerError, "Error retrieving current detection")
+			return
+		}
+
+		// Build maps for efficient lookup
+		currentDSMap := make(map[int64]bool)
+		for _, ds := range currentDetection.DataSources {
+			currentDSMap[ds.ID] = true
+		}
+
+		newDSMap := make(map[int64]bool)
+		for _, dsID := range updateRequest.DataSourceIDs {
+			newDSMap[dsID] = true
+		}
+
+		// Remove data sources that are no longer in the list
+		for _, ds := range currentDetection.DataSources {
+			if !newDSMap[ds.ID] {
+				if err := h.repo.RemoveDataSource(id, ds.ID); err != nil {
+					// Log error but continue
+					continue
+				}
+			}
+		}
+
+		// Add new data sources
+		for _, dsID := range updateRequest.DataSourceIDs {
+			if !currentDSMap[dsID] {
+				if err := h.repo.AddDataSource(id, dsID); err != nil {
+					// Log error but continue
+					continue
+				}
+			}
+		}
+	}
+
+	// Update MITRE technique relationships if provided
+	if updateRequest.MitreTechniqueIDs != nil {
+		// Get current techniques
+		currentDetection, err := h.repo.GetDetection(id)
+		if err != nil {
+			Error(w, r, http.StatusInternalServerError, "Error retrieving current detection")
+			return
+		}
+
+		// Build maps for efficient lookup
+		currentTechMap := make(map[string]bool)
+		for _, tech := range currentDetection.MitreTechniques {
+			currentTechMap[tech.ID] = true
+		}
+
+		newTechMap := make(map[string]bool)
+		for _, techID := range updateRequest.MitreTechniqueIDs {
+			newTechMap[techID] = true
+		}
+
+		// Remove techniques that are no longer in the list
+		for _, tech := range currentDetection.MitreTechniques {
+			if !newTechMap[tech.ID] {
+				if err := h.repo.RemoveMitreTechnique(id, tech.ID); err != nil {
+					// Log error but continue
+					continue
+				}
+			}
+		}
+
+		// Add new techniques
+		for _, techID := range updateRequest.MitreTechniqueIDs {
+			if !currentTechMap[techID] {
+				if err := h.repo.AddMitreTechnique(id, techID); err != nil {
+					// Log error but continue
+					continue
+				}
+			}
+		}
+	}
+
+	// Get the updated detection with all relationships
+	updatedDetection, err := h.repo.GetDetection(id)
+	if err != nil {
+		Error(w, r, http.StatusInternalServerError, "Error retrieving updated detection")
 		return
 	}
 
 	// Return updated detection as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(detection)
+	JSON(w, http.StatusOK, updatedDetection)
 }
 
 // DeleteDetection handles DELETE /api/detections/{id}
@@ -136,13 +225,13 @@ func (h *DetectionHandler) DeleteDetection(w http.ResponseWriter, r *http.Reques
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
 	// Delete detection from repository
 	if err := h.repo.DeleteDetection(id); err != nil {
-		http.Error(w, "Error deleting detection", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error deleting detection")
 		return
 	}
 
@@ -155,13 +244,12 @@ func (h *DetectionHandler) GetDetectionCount(w http.ResponseWriter, r *http.Requ
 	// Get detection count from repository
 	count, err := h.repo.GetDetectionCount()
 	if err != nil {
-		http.Error(w, "Error retrieving detection count", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving detection count")
 		return
 	}
 
 	// Return count as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]int{"count": count})
+	JSON(w, http.StatusOK, map[string]int{"count": count})
 }
 
 // GetDetectionCountByStatus handles GET /api/detections/count/status
@@ -169,13 +257,12 @@ func (h *DetectionHandler) GetDetectionCountByStatus(w http.ResponseWriter, r *h
 	// Get detection count by status from repository
 	counts, err := h.repo.GetDetectionCountByStatus()
 	if err != nil {
-		http.Error(w, "Error retrieving detection counts", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving detection counts")
 		return
 	}
 
 	// Return counts as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(counts)
+	JSON(w, http.StatusOK, counts)
 }
 
 // GetFalsePositiveRate handles GET /api/detections/{id}/fp-rate
@@ -184,20 +271,19 @@ func (h *DetectionHandler) GetFalsePositiveRate(w http.ResponseWriter, r *http.R
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
 	// Get false positive rate from repository
 	rate, err := h.repo.GetFalsePositiveRate(id)
 	if err != nil {
-		http.Error(w, "Error retrieving false positive rate", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving false positive rate")
 		return
 	}
 
 	// Return rate as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]float64{"false_positive_rate": rate})
+	JSON(w, http.StatusOK, map[string]float64{"false_positive_rate": rate})
 }
 
 // GetEventCountLast30Days handles GET /api/detections/{id}/events/count/30days
@@ -206,20 +292,19 @@ func (h *DetectionHandler) GetEventCountLast30Days(w http.ResponseWriter, r *htt
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
 	// Get event count from repository
 	count, err := h.repo.GetEventCountLast30Days(id)
 	if err != nil {
-		http.Error(w, "Error retrieving event count", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving event count")
 		return
 	}
 
 	// Return count as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]int{"count": count})
+	JSON(w, http.StatusOK, map[string]int{"count": count})
 }
 
 // GetFalsePositivesLast30Days handles GET /api/detections/{id}/false-positives/count/30days
@@ -228,20 +313,19 @@ func (h *DetectionHandler) GetFalsePositivesLast30Days(w http.ResponseWriter, r 
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
 	// Get false positive count from repository
 	count, err := h.repo.GetFalsePositivesLast30Days(id)
 	if err != nil {
-		http.Error(w, "Error retrieving false positive count", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error retrieving false positive count")
 		return
 	}
 
 	// Return count as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]int{"count": count})
+	JSON(w, http.StatusOK, map[string]int{"count": count})
 }
 
 // AddMitreTechnique handles POST /api/detections/{id}/mitre/{technique_id}
@@ -250,26 +334,25 @@ func (h *DetectionHandler) AddMitreTechnique(w http.ResponseWriter, r *http.Requ
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
 	// Extract technique ID from URL path
 	techniqueID := r.PathValue("technique_id")
 	if techniqueID == "" {
-		http.Error(w, "Invalid technique ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid technique ID")
 		return
 	}
 
 	// Add technique to detection
 	if err := h.repo.AddMitreTechnique(id, techniqueID); err != nil {
-		http.Error(w, "Error adding MITRE technique", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error adding MITRE technique")
 		return
 	}
 
 	// Return success message
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "MITRE technique added successfully"})
+	JSON(w, http.StatusOK, map[string]string{"message": "MITRE technique added successfully"})
 }
 
 // RemoveMitreTechnique handles DELETE /api/detections/{id}/mitre/{technique_id}
@@ -278,26 +361,25 @@ func (h *DetectionHandler) RemoveMitreTechnique(w http.ResponseWriter, r *http.R
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
 	// Extract technique ID from URL path
 	techniqueID := r.PathValue("technique_id")
 	if techniqueID == "" {
-		http.Error(w, "Invalid technique ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid technique ID")
 		return
 	}
 
 	// Remove technique from detection
 	if err := h.repo.RemoveMitreTechnique(id, techniqueID); err != nil {
-		http.Error(w, "Error removing MITRE technique", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error removing MITRE technique")
 		return
 	}
 
 	// Return success message
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "MITRE technique removed successfully"})
+	JSON(w, http.StatusOK, map[string]string{"message": "MITRE technique removed successfully"})
 }
 
 // AddDataSource handles POST /api/detections/{id}/datasource/{datasource_id}
@@ -306,7 +388,7 @@ func (h *DetectionHandler) AddDataSource(w http.ResponseWriter, r *http.Request)
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
@@ -314,19 +396,18 @@ func (h *DetectionHandler) AddDataSource(w http.ResponseWriter, r *http.Request)
 	dataSourceIDStr := r.PathValue("datasource_id")
 	dataSourceID, err := strconv.ParseInt(dataSourceIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid data source ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid data source ID")
 		return
 	}
 
 	// Add data source to detection
 	if err := h.repo.AddDataSource(id, dataSourceID); err != nil {
-		http.Error(w, "Error adding data source", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error adding data source")
 		return
 	}
 
 	// Return success message
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "Data source added successfully"})
+	JSON(w, http.StatusOK, map[string]string{"message": "Data source added successfully"})
 }
 
 // RemoveDataSource handles DELETE /api/detections/{id}/datasource/{datasource_id}
@@ -335,7 +416,7 @@ func (h *DetectionHandler) RemoveDataSource(w http.ResponseWriter, r *http.Reque
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid detection ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid detection ID")
 		return
 	}
 
@@ -343,17 +424,16 @@ func (h *DetectionHandler) RemoveDataSource(w http.ResponseWriter, r *http.Reque
 	dataSourceIDStr := r.PathValue("datasource_id")
 	dataSourceID, err := strconv.ParseInt(dataSourceIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Invalid data source ID", http.StatusBadRequest)
+		Error(w, r, http.StatusBadRequest, "Invalid data source ID")
 		return
 	}
 
 	// Remove data source from detection
 	if err := h.repo.RemoveDataSource(id, dataSourceID); err != nil {
-		http.Error(w, "Error removing data source", http.StatusInternalServerError)
+		Error(w, r, http.StatusInternalServerError, "Error removing data source")
 		return
 	}
 
 	// Return success message
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "Data source removed successfully"})
+	JSON(w, http.StatusOK, map[string]string{"message": "Data source removed successfully"})
 }

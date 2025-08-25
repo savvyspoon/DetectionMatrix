@@ -178,7 +178,7 @@ func TestRepository_ListDetections(t *testing.T) {
 
 	// Create multiple test detections
 	detection1 := createTestDetection(t, repo)
-	
+
 	detection2 := &models.Detection{
 		Name:        "Second Detection",
 		Description: "Second description",

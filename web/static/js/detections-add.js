@@ -62,7 +62,15 @@ function detectionAddData() {
             try {
                 const response = await fetch('/api/datasources');
                 if (response.ok) {
-                    this.dataSources = await response.json();
+                    const data = await response.json();
+                    // Handle ListResponse structure from API
+                    if (data && typeof data === 'object' && 'items' in data) {
+                        this.dataSources = Array.isArray(data.items) ? data.items : [];
+                    } else if (Array.isArray(data)) {
+                        this.dataSources = data;
+                    } else {
+                        this.dataSources = [];
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching data sources:', error);
@@ -74,7 +82,15 @@ function detectionAddData() {
             try {
                 const response = await fetch('/api/mitre/techniques');
                 if (response.ok) {
-                    this.mitreTechniques = await response.json();
+                    const data = await response.json();
+                    // Handle ListResponse structure from API
+                    if (data && typeof data === 'object' && 'items' in data) {
+                        this.mitreTechniques = Array.isArray(data.items) ? data.items : [];
+                    } else if (Array.isArray(data)) {
+                        this.mitreTechniques = data;
+                    } else {
+                        this.mitreTechniques = [];
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching MITRE techniques:', error);

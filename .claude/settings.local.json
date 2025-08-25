@@ -19,7 +19,15 @@
       "Bash(do echo \"=== $file ===\")",
       "Bash(done)",
       "Bash(CGO_ENABLED=1 go run ./cmd/server -addr :8080)",
-      "Bash(CGO_ENABLED=1 go build -o server ./cmd/server)"
+      "Bash(CGO_ENABLED=1 go build -o server ./cmd/server)",
+      "Bash(do if ! grep -q 'hx-get=\"\"/header.html\"\"' \"$file\")",
+      "Bash(then echo \"Missing header: $file\")",
+      "Bash(fi)",
+      "Bash(do grep -l 'hx-get=\"\"/header.html\"\"' \"$file\")",
+      "Bash(echo:*)",
+      "Bash(do if [ \"$file\" != \"header.html\" ])",
+      "Bash([ \"$file\" != \"footer.html\" ])",
+      "Bash(then grep -l 'hx-get=\"\"/footer.html\"\"' \"$file\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

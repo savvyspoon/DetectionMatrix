@@ -2,14 +2,19 @@
 
 class APIUtils {
     /**
-     * Generic API fetch with error handling
+     * Generic API fetch with standardized JSON error parsing
      */
     static async fetchAPI(url, options = {}) {
         try {
             const response = await fetch(url, options);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const err = await APIUtils.parseError(response);
+                UIUtils.showAlert(err.message || `Request failed (${response.status})`, 'error');
+                throw new Error(err.message || `HTTP ${response.status}`);
             }
+            // Handle empty responses (204, or no body)
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) return null;
             return await response.json();
         } catch (error) {
             console.error(`API Error (${url}):`, error);
@@ -18,18 +23,20 @@ class APIUtils {
     }
 
     /**
-     * DELETE request helper
+     * DELETE request helper with error parsing
      */
     static async deleteAPI(url) {
         const response = await fetch(url, { method: 'DELETE' });
         if (!response.ok) {
-            throw new Error(`Delete failed! status: ${response.status}`);
+            const err = await APIUtils.parseError(response);
+            UIUtils.showAlert(err.message || `Delete failed (${response.status})`, 'error');
+            throw new Error(err.message || `HTTP ${response.status}`);
         }
-        return response;
+        return true;
     }
 
     /**
-     * POST request helper
+     * POST request helper with error parsing
      */
     static async postAPI(url, data) {
         const response = await fetch(url, {
@@ -39,14 +46,48 @@ class APIUtils {
             },
             body: JSON.stringify(data)
         });
-        
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Server error:', errorText);
-            throw new Error(`Post failed! status: ${response.status}`);
+            const err = await APIUtils.parseError(response);
+            UIUtils.showAlert(err.message || `Post failed (${response.status})`, 'error');
+            throw new Error(err.message || `HTTP ${response.status}`);
         }
-        
         return await response.json();
+    }
+
+    /**
+     * PUT request helper with error parsing
+     */
+    static async putAPI(url, data) {
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        if (!response.ok) {
+            const err = await APIUtils.parseError(response);
+            UIUtils.showAlert(err.message || `Put failed (${response.status})`, 'error');
+            throw new Error(err.message || `HTTP ${response.status}`);
+        }
+        return await response.json();
+    }
+
+    /**
+     * Parse standardized JSON error { error, code, request_id }
+     */
+    static async parseError(response) {
+        try {
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                const body = await response.json();
+                return { message: body.error, code: body.code, requestId: body.request_id };
+            }
+            const text = await response.text();
+            return { message: text || response.statusText, code: response.status };
+        } catch (e) {
+            return { message: response.statusText, code: response.status };
+        }
     }
 }
 

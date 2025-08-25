@@ -68,8 +68,9 @@ class DashboardAPI {
             const response = await fetch('/api/risk/alerts');
             if (response.ok) {
                 const data = await response.json();
+                const items = data.items || data || [];
                 // Count alerts that are not "Closed"
-                return data ? data.filter(alert => alert.status !== 'Closed').length : 0;
+                return items ? items.filter(alert => alert.status !== 'Closed').length : 0;
             }
         } catch (error) {
             console.error('Error fetching active alerts:', error);
@@ -84,11 +85,8 @@ class DashboardAPI {
                 const data = await response.json();
                 const today = new Date().toISOString().split('T')[0];
                 
-                if (data.events) {
-                    return data.events.filter(event => 
-                        event.timestamp.startsWith(today)
-                    ).length;
-                }
+                const items = data.items || [];
+                return items.filter(event => event.timestamp.startsWith(today)).length;
             }
         } catch (error) {
             console.error('Error fetching events today:', error);
@@ -101,12 +99,8 @@ class DashboardAPI {
             const response = await fetch('/api/events');
             if (response.ok) {
                 const data = await response.json();
-                
-                if (data.events) {
-                    return data.events.filter(event => 
-                        event.is_false_positive === true
-                    ).length;
-                }
+                const items = data.items || [];
+                return items.filter(event => event.is_false_positive === true).length;
             }
         } catch (error) {
             console.error('Error fetching false positives:', error);
